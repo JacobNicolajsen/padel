@@ -205,6 +205,13 @@
     }
     .score-btn-b:hover{ background:rgba(255,255,255,.1); }
     .score-btn.disabled{ opacity:.3; cursor:not-allowed; pointer-events:none; }
+    .score-btn.hid-cooldown{ opacity:.45; cursor:not-allowed; pointer-events:none; position:relative; overflow:hidden; }
+    .score-btn.hid-cooldown::after{
+      content:''; position:absolute; left:0; top:0; height:100%;
+      background:rgba(255,255,255,.12);
+      animation:hidCd 5s linear forwards;
+    }
+    @keyframes hidCd{ from{width:100%} to{width:0%} }
 
     .ctrl-center{ display:flex; flex-direction:column; align-items:center; gap:4px; }
     .ctrl-mini-row{ display:flex; gap:4px; }
@@ -866,7 +873,39 @@ function pushHistory(){
 }
 function rotateServer(){ if(s.server==='A'){s.serverIdxA=(s.serverIdxA+1)%2;s.server='B';}else{s.serverIdxB=(s.serverIdxB+1)%2;s.server='A';} }
 function startTiebreak(){ s.inTiebreak=true;s.tbA=0;s.tbB=0;s._tbCount=0;s.server=(s.server==='A')?'B':'A'; }
-function checkSetEnd(){ const n=(s._info.format||'best3')==='best5'?3:2; if(s.setsA>=n||s.setsB>=n) s.finished=true; }
+// ── Match-finished audio ──────────────────────────────────────────────────
+function playDing(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [[880,0,0],[880,0.01,0.5],[659,0.05,0.4],[440,0.4,0]].forEach(([freq,when,vol])=>{
+      const osc=ctx.createOscillator(), gain=ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type='sine'; osc.frequency.value=freq;
+      gain.gain.setValueAtTime(vol, ctx.currentTime+when);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+when+1.8);
+      osc.start(ctx.currentTime+when); osc.stop(ctx.currentTime+when+1.8);
+    });
+  }catch(e){}
+}
+
+function announceMatchResult(){
+  if(!window.speechSynthesis) return;
+  const teamA = s._info.teamA||'Hold A', teamB = s._info.teamB||'Hold B';
+  const winner = s.setsA>s.setsB ? teamA : teamB;
+  const setScores = (s.setHistory||[]).map((h,i)=>`sæt ${i+1}: ${h.a}-${h.b}`).join('. ');
+  const text = `Parti slut! ${winner} vinder, ${s.setsA} til ${s.setsB}. ${setScores}.`;
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang='da-DK'; utt.rate=0.88; utt.pitch=1;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utt);
+}
+
+function onMatchFinished(){ playDing(); setTimeout(announceMatchResult, 1400); }
+
+function checkSetEnd(){
+  const n=(s._info.format||'best3')==='best5'?3:2;
+  if((s.setsA>=n||s.setsB>=n) && !s.finished){ s.finished=true; setTimeout(onMatchFinished,0); }
+}
 function recordSet(tb){ s.setHistory=s.setHistory||[]; s.setHistory.push({a:s.gamesA,b:s.gamesB,...(tb?{tb}:{})}); }
 function nextSetServer(){ s.server=(s.server==='A')?'B':'A'; }
 function maybeAutoSideSwap(){ if(qs('#autoSide').checked){ const g=s.gamesA+s.gamesB; if(g>0&&g%2===1) s.sideSwapped=!s.sideSwapped; } }
@@ -959,12 +998,29 @@ on(qs('#A2'),'input',e=>{ s._info.playersA[1]=e.target.value; writeInfo(); });
 on(qs('#B1'),'input',e=>{ s._info.playersB[0]=e.target.value; writeInfo(); });
 on(qs('#B2'),'input',e=>{ s._info.playersB[1]=e.target.value; writeInfo(); });
 
+// ── HID cooldown (Flic / wireless clicker) ───────────────────────────────
+const HID_COOLDOWN_MS = 5000;
+let hidCooldownUntil = 0;
+let hidCooldownTimer = null;
+
+function startHidCooldown(){
+  hidCooldownUntil = Date.now() + HID_COOLDOWN_MS;
+  qs('#btnA').classList.add('hid-cooldown');
+  qs('#btnB').classList.add('hid-cooldown');
+  clearTimeout(hidCooldownTimer);
+  hidCooldownTimer = setTimeout(()=>{
+    hidCooldownUntil = 0;
+    qs('#btnA').classList.remove('hid-cooldown');
+    qs('#btnB').classList.remove('hid-cooldown');
+  }, HID_COOLDOWN_MS);
+}
+
 // Keyboard
 on(document,'keydown',e=>{
   if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey){
-    if(e.key.toLowerCase()==='a'){ e.preventDefault(); givePoint('A'); }
-    if(e.key.toLowerCase()==='b'){ e.preventDefault(); givePoint('B'); }
+    if(e.key.toLowerCase()==='a'){ e.preventDefault(); if(Date.now()<hidCooldownUntil) return; givePoint('A'); startHidCooldown(); }
+    if(e.key.toLowerCase()==='b'){ e.preventDefault(); if(Date.now()<hidCooldownUntil) return; givePoint('B'); startHidCooldown(); }
     if(e.key.toLowerCase()==='s'){ e.preventDefault(); switchServer(); }
     if(e.key.toLowerCase()==='f'){ e.preventDefault(); qs('#btnFS').click(); }
   }
