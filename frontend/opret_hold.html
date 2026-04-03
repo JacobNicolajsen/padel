@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Opret & administrér hold</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#0a0f1e; --bg2:#0f172a; --panel:#111827; --panel2:#0b1220;
+      --fg:#e5e7eb; --muted:#475569; --muted2:#64748b; --muted3:#94a3b8;
+      --border:#1e2d45; --border2:#334155;
+      --btn:#0d1829; --btnHover:#111f33;
+      --accent:#22d3ee; --accent2:#0891b2;
+      --good:#10b981; --goodBg:#0d2f22; --goodBorder:#164e44;
+      --bad:#ef4444; --badBg:#3b0d0d; --badBorder:#661616;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    html,body{ background:var(--bg); color:var(--fg); font-family:'DM Sans',system-ui,sans-serif; min-height:100%; }
+    body::before{
+      content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background-image:linear-gradient(rgba(34,211,238,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.02) 1px,transparent 1px);
+      background-size:40px 40px;
+    }
+
+    /* ── Topbar ─────────────────────────────────────────────────────── */
+    .topbar{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:0 18px; height:52px; border-bottom:1px solid var(--border);
+      background:rgba(10,15,30,.96); backdrop-filter:blur(10px);
+    }
+    .topbar-left{ display:flex; align-items:center; gap:10px; }
+    .logo{ width:30px; height:30px; display:grid; place-items:center; flex-shrink:0; background:linear-gradient(135deg,#06252a,#0a3a43); border:1px solid rgba(34,211,238,.3); border-radius:9px; }
+    .logo svg{ width:17px; height:17px; }
+    .page-title{ font-family:'Syne',sans-serif; font-weight:800; font-size:15px; letter-spacing:-.2px; }
+    .count-chip{ font-size:11px; color:var(--muted2); padding:2px 9px; border:1px solid var(--border2); border-radius:999px; font-family:'DM Mono',monospace; }
+    .topbar-right{ display:flex; align-items:center; gap:6px; }
+    .tb-btn{ display:flex; align-items:center; gap:5px; padding:8px 12px; border-radius:10px; border:1px solid var(--border2); background:var(--btn); color:var(--muted3); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:13px; transition:background .12s,color .12s; white-space:nowrap; }
+    .tb-btn:hover{ background:var(--btnHover); color:var(--fg); }
+    .menu-link{ display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:8px; color:var(--muted2); text-decoration:none; font-size:12px; border:1px solid var(--border2); background:var(--btn); transition:color .12s,background .12s; white-space:nowrap; flex-shrink:0; }
+    .menu-link:hover{ color:var(--fg); background:var(--btnHover); }
+
+    /* ── Quick-nav ───────────────────────────────────────────────── */
+    .quick-nav{
+      display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+      padding:8px 18px; border-bottom:1px solid var(--border);
+      background:rgba(10,15,30,.94); backdrop-filter:blur(8px);
+      position:sticky; top:52px; z-index:9;
+    }
+    .qn-label{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-right:4px; }
+    .qn-link{ display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:8px; border:1px solid var(--border2); background:var(--btn); color:var(--muted3); text-decoration:none; font-size:12px; transition:background .12s,color .12s; white-space:nowrap; }
+    .qn-link:hover{ background:var(--btnHover); color:var(--fg); }
+    .qn-link.live{ border-color:rgba(34,211,238,.3); color:var(--accent); }
+    .qn-link.live:hover{ background:rgba(34,211,238,.08); }
+    .qn-link.active{ background:rgba(34,211,238,.1); border-color:rgba(34,211,238,.35); color:var(--accent); pointer-events:none; }
+
+    /* ── Inline edit ─────────────────────────────────────────────── */
+    .item-edit-form{ display:none; flex-direction:column; gap:8px; width:100%; }
+    .item-edit-form.open{ display:flex; }
+    .item-edit-row{ display:grid; grid-template-columns:90px 1fr; gap:8px; align-items:center; }
+    @media(max-width:480px){ .item-edit-row{ grid-template-columns:1fr; gap:4px; } }
+    .item-edit-lbl{ font-size:12px; color:var(--muted3); }
+    .item-edit-input{ background:var(--panel); border:1px solid var(--border2); color:var(--fg); padding:7px 10px; border-radius:8px; font-size:13px; font-family:'DM Sans',sans-serif; width:100%; }
+    .item-edit-input:focus{ outline:none; border-color:var(--accent); }
+    .item-edit-actions{ display:flex; gap:6px; margin-top:2px; }
+    .item-btn.save{ background:linear-gradient(135deg,var(--accent2),var(--accent)); border:none; color:#0a0f1e; font-weight:700; font-family:'Syne',sans-serif; }
+
+    /* ── Main wrap ───────────────────────────────────────────────── */
+    .wrap{ max-width:980px; margin:0 auto; padding:20px 18px; display:grid; gap:14px; position:relative; z-index:1; }
+
+    /* ── Cards ───────────────────────────────────────────────────── */
+    .card{ background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+    .card-head{
+      display:flex; align-items:center; gap:10px;
+      padding:14px 18px; border-bottom:1px solid var(--border);
+    }
+    .card-head-icon{ width:30px; height:30px; display:grid; place-items:center; flex-shrink:0; background:var(--panel2); border:1px solid var(--border2); border-radius:9px; }
+    .card-head-icon svg{ width:16px; height:16px; stroke:var(--accent); }
+    .card-title{ font-family:'Syne',sans-serif; font-weight:700; font-size:14px; flex:1; }
+    .card-body{ padding:18px; }
+
+    /* ── Form fields ─────────────────────────────────────────────── */
+    .field-row{ display:grid; grid-template-columns:140px 1fr; gap:10px; align-items:center; margin-bottom:12px; }
+    @media(max-width:520px){ .field-row{ grid-template-columns:1fr; gap:4px; } }
+    .field-label{ font-size:13px; color:var(--muted3); font-weight:500; }
+    input[type="text"], input[type="search"]{
+      width:100%; padding:9px 12px;
+      background:var(--panel2); border:1px solid var(--border2);
+      color:var(--fg); border-radius:10px; font-size:14px;
+      font-family:'DM Sans',sans-serif; transition:border-color .15s; min-width:0;
+    }
+    input[type="text"]:focus, input[type="search"]:focus{ outline:none; border-color:var(--accent); }
+    input[type="text"]::placeholder{ color:var(--muted); }
+
+    .radio-group{ display:flex; gap:10px; flex-wrap:wrap; }
+    .radio-label{ display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted3); cursor:pointer; padding:7px 12px; border-radius:9px; border:1px solid var(--border2); background:var(--btn); transition:background .12s,border-color .12s,color .12s; }
+    .radio-label input{ display:none; }
+    .radio-label:has(input:checked){ background:rgba(34,211,238,.1); border-color:rgba(34,211,238,.35); color:var(--accent); }
+
+    /* ── Action buttons ──────────────────────────────────────────── */
+    .btn-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+    .btn{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:9px 14px; border-radius:10px; border:1px solid var(--border2);
+      background:var(--btn); color:var(--muted3); cursor:pointer;
+      font-family:'DM Sans',sans-serif; font-size:13px;
+      transition:background .12s,color .12s;
+    }
+    .btn:hover{ background:var(--btnHover); color:var(--fg); }
+    .btn.primary{
+      background:linear-gradient(135deg,var(--accent2),var(--accent));
+      border:none; color:#0a0f1e; font-weight:700; font-family:'Syne',sans-serif;
+    }
+    .btn.primary:hover{ opacity:.9; }
+    .btn.danger{ background:var(--badBg); border-color:var(--badBorder); color:var(--bad); }
+    .btn.danger:hover{ background:#451010; }
+
+    .status-msg{ font-size:13px; min-height:20px; margin-top:12px; color:var(--muted2); }
+    .status-ok { color:var(--good); }
+    .status-err{ color:var(--bad); }
+
+    /* ── Team list ───────────────────────────────────────────────── */
+    .list{ display:grid; gap:8px; margin-top:12px; }
+    .item{
+      display:flex; align-items:center; gap:12px;
+      background:var(--panel2); border:1px solid var(--border);
+      border-radius:12px; padding:12px 14px;
+      transition:border-color .15s;
+    }
+    .item:hover{ border-color:var(--border2); }
+    .item-info{ flex:1; min-width:0; }
+    .item-name{ font-family:'Syne',sans-serif; font-weight:700; font-size:14px; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .item-meta{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .type-badge{ font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; border:1px solid; white-space:nowrap; }
+    .type-badge.single{ background:rgba(34,211,238,.08); color:var(--accent); border-color:rgba(34,211,238,.25); }
+    .type-badge.double{ background:rgba(16,185,129,.08); color:var(--good); border-color:rgba(16,185,129,.25); }
+    .item-players{ font-size:12px; color:var(--muted3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .item-actions{ display:flex; gap:6px; flex-shrink:0; }
+    .item-btn{ padding:5px 10px; border-radius:8px; border:1px solid var(--border2); background:var(--btn); color:var(--muted2); cursor:pointer; font-size:12px; font-family:'DM Sans',sans-serif; transition:background .12s,color .12s; white-space:nowrap; }
+    .item-btn:hover{ background:var(--btnHover); color:var(--fg); }
+    .item-btn.danger{ background:var(--badBg); border-color:var(--badBorder); color:var(--bad); }
+    .item-btn.danger:hover{ background:#451010; }
+
+    .empty{ display:flex; flex-direction:column; align-items:center; gap:10px; padding:40px 20px; color:var(--muted2); }
+    .empty-icon{ width:44px; height:44px; border-radius:12px; background:var(--btn); border:1px solid var(--border2); display:grid; place-items:center; }
+    .empty-title{ font-family:'Syne',sans-serif; font-weight:700; font-size:14px; color:var(--fg); }
+
+    @keyframes shimmer{ 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+    .skel-pulse{ background:linear-gradient(90deg,var(--panel2) 25%,var(--border2) 50%,var(--panel2) 75%); background-size:400px 100%; animation:shimmer 1.3s infinite linear; }
+
+    /* ── Toolbar (filter + søgning) ──────────────────────────────── */
+    .toolbar{
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      padding:12px 18px; border-bottom:1px solid var(--border);
+    }
+    .search-wrap{ position:relative; flex:1; min-width:160px; max-width:320px; }
+    .search-icon{ position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--muted2); pointer-events:none; }
+    input[type="search"]{
+      width:100%; padding:8px 12px 8px 32px;
+      background:var(--panel2); border:1px solid var(--border2);
+      color:var(--fg); border-radius:10px; font-size:13px;
+      font-family:'DM Sans',sans-serif; transition:border-color .15s;
+    }
+    input[type="search"]:focus{ outline:none; border-color:var(--accent); }
+    input[type="search"]::placeholder{ color:var(--muted); }
+    .seg{
+      display:inline-flex; background:var(--btn);
+      border:1px solid var(--border2); border-radius:10px; overflow:hidden;
+    }
+    .seg-btn{
+      border:0; background:transparent; color:var(--muted2);
+      padding:7px 13px; cursor:pointer; font-family:'DM Sans',sans-serif;
+      font-size:13px; transition:background .12s,color .12s; white-space:nowrap;
+    }
+    .seg-btn.active{ background:#1e3a4a; color:var(--accent); }
+    .seg-btn:hover:not(.active){ background:var(--btnHover); color:var(--fg); }
+    .result-count{ font-size:12px; color:var(--muted2); margin-left:auto; white-space:nowrap; font-family:'DM Mono',monospace; }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-left">
+    <a href="index.html" class="menu-link" title="Tilbage til menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Menu
+    </a>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="6" r="3"/><path d="M9 15 L18 6"/><path d="M3 21 L9 15"/>
+      </svg>
+    </div>
+    <span class="page-title">Hold-administration</span>
+    <span class="count-chip" id="countChip">—</span>
+  </div>
+  <div class="topbar-right">
+    <button class="tb-btn" id="btnReload">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+      Genindlæs
+    </button>
+  </div>
+</div>
+
+<!-- Quick-nav -->
+<nav class="quick-nav">
+  <span class="qn-label">Genvej</span>
+  <a href="admin_games.html" class="qn-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z"/></svg>
+    Kampoverblik
+  </a>
+  <a href="turnering.html" class="qn-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+    Turnering
+  </a>
+  <a href="live_dommer.html" class="qn-link live">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><circle cx="12" cy="12" r="3"/><path d="M5.64 5.64a9 9 0 1 0 12.73 12.73M8.46 8.46a5 5 0 1 0 7.07 7.07"/></svg>
+    Live dommer
+  </a>
+  <a href="statistik.html" class="qn-link">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M3 20h18"/><rect x="6" y="10" width="3" height="7" rx="1"/><rect x="11" y="6" width="3" height="11" rx="1"/><rect x="16" y="12" width="3" height="5" rx="1"/></svg>
+    Statistik
+  </a>
+  <span class="qn-link active">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M16 11a4 4 0 1 0-8 0"/><path d="M3 20a7 7 0 0 1 18 0"/></svg>
+    Opret hold
+  </span>
+</nav>
+
+<div class="wrap">
+
+  <!-- Opret hold -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M12 5v14M5 12h14"/></svg>
+      </div>
+      <span class="card-title">Opret nyt hold</span>
+    </div>
+    <div class="card-body">
+      <div class="field-row">
+        <span class="field-label">Holdnavn</span>
+        <input type="text" id="tName" placeholder="fx Team Nord"/>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Type</span>
+        <div class="radio-group">
+          <label class="radio-label"><input type="radio" name="tType" value="single" checked/> Single</label>
+          <label class="radio-label"><input type="radio" name="tType" value="double"/> Double</label>
+        </div>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Spiller 1</span>
+        <input type="text" id="p1" placeholder="Navn på spiller 1"/>
+      </div>
+      <div class="field-row">
+        <span class="field-label">Spiller 2</span>
+        <input type="text" id="p2" placeholder="Navn på spiller 2 (kun double)"/>
+      </div>
+      <div class="btn-row">
+        <button class="btn primary" id="btnCreate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>
+          Gem hold
+        </button>
+        <button class="btn" id="btnReset">Nulstil</button>
+      </div>
+      <div class="status-msg" id="status"></div>
+    </div>
+  </div>
+
+  <!-- Eksisterende hold -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M16 11a4 4 0 1 0-8 0"/><path d="M3 20a7 7 0 0 1 18 0"/></svg>
+      </div>
+      <span class="card-title">Eksisterende hold</span>
+    </div>
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </span>
+        <input type="search" id="searchInput" placeholder="Søg hold eller spiller…"/>
+      </div>
+      <div class="seg">
+        <button class="seg-btn active" data-filter="all">Alle</button>
+        <button class="seg-btn" data-filter="single">Single</button>
+        <button class="seg-btn" data-filter="double">Double</button>
+      </div>
+      <span class="result-count" id="resultCount"></span>
+    </div>
+    <div class="card-body">
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+
+</div>
+
+  <script>
+    'use strict';
+    const auth = firebase.auth();
+    const db   = firebase.database();
+
+    const listEl      = document.getElementById('list');
+    const statusEl    = document.getElementById('status');
+    const countEl     = document.getElementById('countChip');
+    const resultEl    = document.getElementById('resultCount');
+    const searchInput = document.getElementById('searchInput');
+
+    let allTeams = [];
+    let activeFilter = 'all';
+
+    function setStatus(msg, type = '') {
+      statusEl.textContent = msg;
+      statusEl.className = 'status-msg' + (type ? ' status-' + type : '');
+    }
+
+    // ── Skeleton loader ────────────────────────────────────────────────────────
+    function showSkeleton() {
+      listEl.innerHTML = [1,2,3].map(() =>
+        `<div class="item" style="gap:0">
+          <div style="flex:1;display:flex;flex-direction:column;gap:8px;padding:2px 0">
+            <div style="height:14px;width:40%;border-radius:6px" class="skel-pulse"></div>
+            <div style="height:11px;width:65%;border-radius:6px" class="skel-pulse"></div>
+          </div>
+        </div>`
+      ).join('');
+    }
+
+    function applyFilter() {
+      const q = searchInput.value.trim().toLowerCase();
+      const filtered = allTeams.filter(({ id, name, type, players }) => {
+        if (activeFilter !== 'all' && type !== activeFilter) return false;
+        if (!q) return true;
+        return [name, id, ...(players || [])].join(' ').toLowerCase().includes(q);
+      });
+      renderFiltered(filtered);
+    }
+
+    function renderFiltered(entries) {
+      listEl.innerHTML = '';
+      const total = allTeams.length;
+      const shown = entries.length;
+      resultEl.textContent = shown === total ? `${total} hold` : `${shown} / ${total} hold`;
+
+      if (!shown) {
+        const isSearch = searchInput.value.trim() || activeFilter !== 'all';
+        listEl.innerHTML = `<div class="empty">
+          <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--muted2)" stroke-width="1.6" width="22" height="22"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></div>
+          <div class="empty-title">${isSearch ? 'Ingen hold matcher søgningen' : 'Ingen hold oprettet endnu'}</div>
+        </div>`;
+        return;
+      }
+
+      entries.forEach(({ id, name, type, players }) => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.style.flexDirection = 'column';
+        div.style.alignItems = 'stretch';
+        const typeClass = type === 'double' ? 'double' : 'single';
+        const typeLabel = type === 'double' ? 'Double' : 'Single';
+        const playerStr = (players || []).filter(Boolean).map(escHtml).join(' · ') || '—';
+        const p1val = escAttr((players || [])[0] || '');
+        const p2val = escAttr((players || [])[1] || '');
+
+        div.innerHTML = `
+          <div class="item-row" style="display:flex;align-items:center;gap:12px">
+            <div class="item-info">
+              <div class="item-name">${escHtml(name || id)}</div>
+              <div class="item-meta">
+                <span class="type-badge ${typeClass}">${typeLabel}</span>
+                <span class="item-players">${playerStr}</span>
+              </div>
+            </div>
+            <div class="item-actions">
+              <button class="item-btn copy" data-id="${escAttr(id)}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                ID
+              </button>
+              <button class="item-btn edit-toggle" data-id="${escAttr(id)}">Redigér</button>
+              <button class="item-btn danger del" data-id="${escAttr(id)}">Slet</button>
+            </div>
+          </div>
+          <div class="item-edit-form" id="edit-${escAttr(id)}">
+            <div class="item-edit-row">
+              <span class="item-edit-lbl">Holdnavn</span>
+              <input class="item-edit-input edit-name" value="${escAttr(name)}" placeholder="Holdnavn"/>
+            </div>
+            <div class="item-edit-row">
+              <span class="item-edit-lbl">Spiller 1</span>
+              <input class="item-edit-input edit-p1" value="${p1val}" placeholder="Spiller 1"/>
+            </div>
+            <div class="item-edit-row">
+              <span class="item-edit-lbl">Spiller 2</span>
+              <input class="item-edit-input edit-p2" value="${p2val}" placeholder="Spiller 2 (kun double)"/>
+            </div>
+            <div class="item-edit-actions">
+              <button class="item-btn save edit-save" data-id="${escAttr(id)}">Gem ændringer</button>
+              <button class="item-btn edit-cancel" data-id="${escAttr(id)}">Annuller</button>
+            </div>
+          </div>`;
+
+        listEl.appendChild(div);
+      });
+
+      // Delete
+      listEl.querySelectorAll('button.del').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-id');
+          if (!confirm('Slet holdet "' + id + '"?')) return;
+          try {
+            await db.ref('padel-score/teams/' + id).remove();
+            setStatus('Hold slettet.', 'ok');
+            load();
+          } catch (e) { setStatus('Fejl ved sletning: ' + e.message, 'err'); }
+        });
+      });
+
+      // Copy ID with visual feedback
+      listEl.querySelectorAll('button.copy').forEach(btn => {
+        btn.addEventListener('click', () => {
+          navigator.clipboard.writeText(btn.getAttribute('data-id')).then(() => {
+            const orig = btn.innerHTML;
+            btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><polyline points="20 6 9 17 4 12"/></svg> Kopieret`;
+            btn.style.color = 'var(--good)';
+            btn.style.borderColor = 'var(--goodBorder)';
+            setTimeout(() => { btn.innerHTML = orig; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+          }).catch(() => {});
+        });
+      });
+
+      // Edit toggle
+      listEl.querySelectorAll('button.edit-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const form = document.getElementById('edit-' + btn.getAttribute('data-id'));
+          const isOpen = form.classList.contains('open');
+          // close all others
+          listEl.querySelectorAll('.item-edit-form').forEach(f => f.classList.remove('open'));
+          listEl.querySelectorAll('.edit-toggle').forEach(b => b.textContent = 'Redigér');
+          if (!isOpen) {
+            form.classList.add('open');
+            btn.textContent = 'Luk';
+            form.querySelector('.edit-name').focus();
+          }
+        });
+      });
+
+      // Edit cancel
+      listEl.querySelectorAll('button.edit-cancel').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('edit-' + btn.getAttribute('data-id')).classList.remove('open');
+          listEl.querySelectorAll('.edit-toggle[data-id="' + btn.getAttribute('data-id') + '"]').forEach(b => b.textContent = 'Redigér');
+        });
+      });
+
+      // Edit save
+      listEl.querySelectorAll('button.edit-save').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id   = btn.getAttribute('data-id');
+          const form = document.getElementById('edit-' + id);
+          const newName = form.querySelector('.edit-name').value.trim();
+          const newP1   = form.querySelector('.edit-p1').value.trim();
+          const newP2   = form.querySelector('.edit-p2').value.trim();
+          if (!newName) { setStatus('Angiv et holdnavn.', 'err'); return; }
+          if (!newP1)   { setStatus('Angiv mindst én spiller.', 'err'); return; }
+          const team = allTeams.find(t => t.id === id);
+          const updates = { name: newName, players: team?.type === 'double' ? [newP1, newP2] : [newP1, ''] };
+          btn.textContent = 'Gemmer…';
+          try {
+            await db.ref('padel-score/teams/' + id).update(updates);
+            setStatus('Hold opdateret.', 'ok');
+            load();
+          } catch (e) { setStatus('Fejl: ' + e.message, 'err'); btn.textContent = 'Gem ændringer'; }
+        });
+      });
+    }
+
+    function storeAndRender(map) {
+      allTeams = map
+        ? Object.entries(map)
+            .sort((a, b) => (a[1]?.name || a[0]).localeCompare(b[1]?.name || b[0]))
+            .map(([id, t]) => ({ id, name: t?.name || id, type: t?.type || 'single', players: t?.players || [], created: t?.created }))
+        : [];
+      countEl.textContent = allTeams.length + ' hold';
+      applyFilter();
+    }
+
+    async function load() {
+      showSkeleton();
+      try {
+        const snap = await db.ref('padel-score/teams').get();
+        storeAndRender(snap.val());
+      } catch (e) { setStatus('Fejl ved indlæsning: ' + e.message, 'err'); }
+    }
+
+    function nextTeamId(name) {
+      const d = new Date();
+      const ymd = `${d.getFullYear()}${('0'+(d.getMonth()+1)).slice(-2)}${('0'+d.getDate()).slice(-2)}`;
+      const slug = (name || '').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'').slice(0,24) || 'x';
+      return `${slug}-${ymd}-${Math.random().toString(36).slice(2,7)}`;
+    }
+
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function escAttr(s) { return escHtml(s); }
+
+    document.querySelectorAll('.seg-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFilter = btn.dataset.filter;
+        applyFilter();
+      });
+    });
+    searchInput.addEventListener('input', applyFilter);
+
+    document.getElementById('btnCreate').addEventListener('click', async () => {
+      const name = document.getElementById('tName').value.trim();
+      const type = document.querySelector('input[name="tType"]:checked').value;
+      const p1   = document.getElementById('p1').value.trim();
+      const p2   = document.getElementById('p2').value.trim();
+      if (!name)                    { setStatus('Angiv et holdnavn.', 'err'); return; }
+      if (!p1)                      { setStatus('Angiv mindst én spiller.', 'err'); return; }
+      if (type === 'double' && !p2) { setStatus('Double kræver to spillere.', 'err'); return; }
+      const id   = nextTeamId(name);
+      const team = { name, type, players: type === 'double' ? [p1, p2] : [p1, ''], created: Date.now() };
+      setStatus('Gemmer…');
+      try {
+        await db.ref('padel-score/teams/' + id).set(team);
+        setStatus('Hold gemt ✓', 'ok');
+        load();
+      } catch (e) { setStatus('Fejl: ' + e.message, 'err'); }
+    });
+
+    document.getElementById('btnReset').addEventListener('click', () => {
+      document.getElementById('tName').value = '';
+      document.getElementById('p1').value    = '';
+      document.getElementById('p2').value    = '';
+      document.querySelector('input[name="tType"][value="single"]').checked = true;
+      setStatus('');
+    });
+
+    document.getElementById('btnReload').addEventListener('click', load);
+    auth.signInAnonymously().then(load).catch(e => setStatus('Auth-fejl: ' + e.message, 'err'));
+  </script>
+</body>
+</html>

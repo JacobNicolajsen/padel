@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Padel – Menu</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#0f172a"/>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
+
+    :root{
+      --bg:#0a0f1e;
+      --bg2:#0f172a;
+      --fg:#e5e7eb;
+      --muted:#64748b;
+      --muted2:#94a3b8;
+      --border:#1e2d45;
+      --border2:#334155;
+      --btn:#0d1829;
+      --btnHover:#111f33;
+      --accent:#22d3ee;
+      --accent2:#0891b2;
+      --glow: rgba(34,211,238,0.15);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{
+      background:var(--bg);
+      color:var(--fg);
+      font-family:'DM Sans',system-ui,sans-serif;
+      min-height:100%;
+    }
+
+    /* Subtle grid background */
+    body::before{
+      content:'';
+      position:fixed; inset:0; z-index:0;
+      background-image:
+        linear-gradient(rgba(34,211,238,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34,211,238,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events:none;
+    }
+
+    header{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; gap:14px;
+      padding:14px 20px;
+      border-bottom:1px solid var(--border);
+      background:linear-gradient(180deg,rgba(10,15,30,.98),rgba(10,15,30,.92));
+      backdrop-filter:blur(8px);
+    }
+    .logo{
+      width:38px; height:38px;
+      display:grid; place-items:center;
+      background:linear-gradient(135deg,#06252a,#0a3a43);
+      border:1px solid rgba(34,211,238,0.3);
+      border-radius:12px;
+      box-shadow: 0 0 20px rgba(34,211,238,0.12);
+    }
+    .logo svg{ width:22px; height:22px; }
+    .hdr-text{ display:flex; flex-direction:column; }
+    .hdr-title{ font-family:'Syne',sans-serif; font-weight:800; font-size:16px; letter-spacing:-0.3px; }
+    .hdr-sub{ font-size:11px; color:var(--muted2); }
+
+    .wrap{ max-width:980px; margin:0 auto; padding:24px 18px; position:relative; z-index:1; }
+
+    .section-label{
+      font-size:11px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase;
+      color:var(--muted); margin-bottom:10px; padding-left:2px;
+    }
+
+    .grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:24px; }
+    @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:500px){.grid{grid-template-columns:1fr}}
+
+    .cardBtn{
+      display:flex; align-items:center; gap:14px;
+      padding:16px 18px;
+      background:var(--btn);
+      border:1px solid var(--border);
+      border-radius:14px;
+      cursor:pointer;
+      text-align:left;
+      min-height:76px;
+      transition:background .15s, border-color .15s, transform .1s, box-shadow .15s;
+      position:relative; overflow:hidden;
+    }
+    .cardBtn::before{
+      content:''; position:absolute; inset:0;
+      background:linear-gradient(135deg,rgba(34,211,238,0.04),transparent);
+      opacity:0; transition:opacity .2s;
+    }
+    .cardBtn:hover{ background:var(--btnHover); border-color:var(--border2); }
+    .cardBtn:hover::before{ opacity:1; }
+    .cardBtn:hover{ box-shadow:0 4px 24px rgba(0,0,0,.3); }
+    .cardBtn:active{ transform:translateY(1px); }
+
+    .cardBtn.protected{ border-color:rgba(34,211,238,0.18); }
+    .cardBtn.protected:hover{ border-color:rgba(34,211,238,0.35); box-shadow:0 4px 24px var(--glow); }
+
+    .icon{
+      width:36px; height:36px; flex-shrink:0;
+      display:grid; place-items:center;
+      background:#0b1220;
+      border:1px solid var(--border);
+      border-radius:10px;
+    }
+    .icon svg{ width:20px; height:20px; stroke:var(--fg); }
+    .cardBtn.protected .icon{ background:#06202a; border-color:rgba(34,211,238,0.25); }
+    .cardBtn.protected .icon svg{ stroke:var(--accent); }
+
+    .txt{ display:flex; flex-direction:column; gap:2px; }
+    .ttl{ font-family:'Syne',sans-serif; font-weight:700; font-size:14px; }
+    .sub{ font-size:12px; color:var(--muted2); }
+
+    .lock-badge{
+      margin-left:auto; flex-shrink:0;
+      width:20px; height:20px;
+      display:grid; place-items:center;
+      opacity:0.4;
+    }
+    .lock-badge svg{ width:14px; height:14px; stroke:var(--accent); }
+
+    .foot{
+      margin-top:8px; text-align:center;
+      color:var(--muted); font-size:12px; padding-bottom:16px;
+    }
+    .foot a{ color:var(--muted2); }
+
+    /* Auth modal */
+    .modal-overlay{
+      display:none; position:fixed; inset:0; z-index:100;
+      background:rgba(0,0,0,0.7); backdrop-filter:blur(4px);
+      align-items:center; justify-content:center;
+      padding:16px;
+    }
+    .modal-overlay.open{ display:flex; }
+    .modal{
+      background:var(--bg2); border:1px solid var(--border2);
+      border-radius:16px; padding:28px 24px;
+      width:min(380px,100%);
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
+      animation:modalIn .2s ease;
+    }
+    @keyframes modalIn{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .modal h2{ font-family:'Syne',sans-serif; font-size:18px; margin-bottom:6px; }
+    .modal p{ color:var(--muted2); font-size:13px; margin-bottom:18px; }
+    .modal input[type="password"]{
+      width:100%; padding:12px 14px;
+      background:#0b1220; border:1px solid var(--border2);
+      border-radius:10px; color:var(--fg); font-size:16px;
+      outline:none; transition:border-color .15s;
+      margin-bottom:14px;
+    }
+    .modal input[type="password"]:focus{ border-color:var(--accent); }
+    .modal-btns{ display:flex; gap:8px; }
+    .btn-primary{
+      flex:1; padding:12px; border-radius:10px; cursor:pointer;
+      background:linear-gradient(135deg,var(--accent2),var(--accent));
+      border:none; color:#0a0f1e; font-weight:700; font-size:15px;
+      font-family:'Syne',sans-serif;
+      transition:opacity .15s;
+    }
+    .btn-primary:hover{ opacity:0.9; }
+    .btn-cancel{
+      padding:12px 16px; border-radius:10px; cursor:pointer;
+      background:transparent; border:1px solid var(--border2); color:var(--muted2);
+    }
+    .btn-cancel:hover{ background:var(--btnHover); }
+    .modal-error{ color:#f87171; font-size:13px; margin-top:6px; min-height:18px; }
+
+    .shake{ animation:shake .35s ease; }
+    @keyframes shake{
+      0%,100%{transform:translateX(0)}
+      20%{transform:translateX(-6px)}
+      40%{transform:translateX(6px)}
+      60%{transform:translateX(-4px)}
+      80%{transform:translateX(4px)}
+    }
+
+    /* ── Header login-knap ───────────────────────────────────────── */
+    .hdr-right{ margin-left:auto; display:flex; align-items:center; gap:8px; }
+    .login-btn{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:8px 14px; border-radius:10px; cursor:pointer;
+      font-family:'DM Sans',sans-serif; font-size:13px; font-weight:500;
+      transition:background .15s, border-color .15s, color .15s;
+      white-space:nowrap;
+    }
+    .login-btn.signin{
+      background:linear-gradient(135deg,var(--accent2),var(--accent));
+      border:none; color:#0a0f1e; font-weight:700;
+      font-family:'Syne',sans-serif;
+    }
+    .login-btn.signin:hover{ opacity:.88; }
+    .login-btn.signout{
+      background:transparent; border:1px solid var(--border2); color:var(--muted2);
+    }
+    .login-btn.signout:hover{ background:var(--btnHover); color:var(--fg); border-color:var(--border2); }
+
+    /* ── Protected section hide/show ─────────────────────────────── */
+    .protected-section{ transition:opacity .2s; }
+    .protected-section.hidden{ display:none; }
+
+    /* ── Admin indicator ─────────────────────────────────────────── */
+    .admin-indicator{
+      display:none; align-items:center; gap:6px;
+      font-size:12px; color:var(--muted2);
+    }
+    .admin-indicator.visible{ display:flex; }
+    .admin-dot{
+      width:7px; height:7px; border-radius:50%;
+      background:#10b981; box-shadow:0 0 6px #10b981;
+      flex-shrink:0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="6" r="3"/>
+        <path d="M9 15 L18 6"/>
+        <path d="M3 21 L9 15"/>
+      </svg>
+    </div>
+    <div class="hdr-text">
+      <div class="hdr-title">Padel – Menu</div>
+      <div class="hdr-sub">Mobilvenlig navigation</div>
+    </div>
+    <div class="hdr-right">
+      <div class="admin-indicator" id="adminIndicator">
+        <span class="admin-dot"></span>
+        Admin
+      </div>
+      <button class="login-btn signin" id="loginBtn" onclick="openLoginModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Log ind
+      </button>
+    </div>
+  </header>
+
+  <div class="wrap">
+
+    <div class="protected-section hidden" id="protectedSections">
+
+    <div class="section-label">Administration</div>
+    <div class="grid" style="margin-bottom:24px">
+
+      <button class="cardBtn protected" onclick="openPage('admin_games.html')">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z"/><path d="M9.5 12.5l1.8 1.8L15 10.6"/></svg>
+        </span>
+        <span class="txt"><span class="ttl">Kampoverblik</span><span class="sub">Administration</span></span>
+      </button>
+
+      <button class="cardBtn protected" onclick="openPage('opret_hold.html')">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M16 11a4 4 0 1 0-8 0"/><path d="M3 20a7 7 0 0 1 18 0"/></svg>
+        </span>
+        <span class="txt"><span class="ttl">Opret hold</span><span class="sub">Hold-administration</span></span>
+      </button>
+
+      <button class="cardBtn protected" onclick="openPage('turnering.html')">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+        </span>
+        <span class="txt"><span class="ttl">Turnering</span><span class="sub">Bracket & puljer</span></span>
+      </button>
+
+    </div>
+
+    <div class="section-label">Dommer</div>
+    <div class="grid" style="margin-bottom:24px">
+
+      <button class="cardBtn protected" onclick="openPage('live_dommer.html')">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M5.64 5.64a9 9 0 1 0 12.73 12.73M8.46 8.46a5 5 0 1 0 7.07 7.07"/></svg>
+        </span>
+        <span class="txt"><span class="ttl">Spil og døm</span><span class="sub">Score + viewer</span></span>
+      </button>
+
+    </div>
+
+    </div><!-- /protectedSections -->
+
+    <div class="section-label">Visning & Statistik</div>
+    <div class="grid">
+
+      <button class="cardBtn" onclick="openPage('multibaner.html')">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        </span>
+        <span class="txt"><span class="ttl">Følg med i kampe</span><span class="sub">Overvåg flere kampe</span></span>
+      </button>
+
+      <button class="cardBtn" onclick="openPage('statistik.html')">
+        <span class="icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M3 20h18"/><rect x="6" y="10" width="3" height="7" rx="1.2"/><rect x="11" y="6" width="3" height="11" rx="1.2"/><rect x="16" y="12" width="3" height="5" rx="1.2"/></svg>
+        </span>
+        <span class="txt"><span class="ttl">Statistik</span><span class="sub">Spillere & hold</span></span>
+      </button>
+
+    </div>
+
+    <div class="foot">Tip: Tilføj siden til hjemmeskærm for app-oplevelse.</div>
+  </div>
+
+  <!-- Login modal -->
+  <div class="modal-overlay" id="authOverlay">
+    <div class="modal" id="authModal">
+      <h2>🔒 Log ind</h2>
+      <p>Indtast adgangskoden for at tilgå administrationsfunktioner.</p>
+      <input type="password" id="pwInput" placeholder="Adgangskode" autocomplete="current-password"/>
+      <div class="modal-error" id="pwError"></div>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeAuth()">Annuller</button>
+        <button class="btn-primary" onclick="submitAuth()">Log ind</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── Password hash (SHA-256 of "Padel") ──────────────────────────────────
+    const PW_HASH = '4be1d63158233f4ef5377caa3a7dbcf1e76d334a6522bb6ae1af5bc1e9ad2b19';
+    const AUTH_TTL = 8 * 60 * 60 * 1000; // 8 hours
+
+    let _pendingUrl = '';
+
+    async function sha256(str) {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+
+    function vibrate(ms){ if(navigator.vibrate) navigator.vibrate(ms); }
+
+    // ─── Auth state (localStorage with expiry) ────────────────────────────────
+    function isLoggedIn(){
+      try {
+        const raw = localStorage.getItem('padelAuth');
+        if(!raw) return false;
+        const { ok, exp } = JSON.parse(raw);
+        if(ok === 'yes' && Date.now() < exp) return true;
+        localStorage.removeItem('padelAuth');
+        return false;
+      } catch(e){ return false; }
+    }
+
+    function setLoggedIn(){
+      localStorage.setItem('padelAuth', JSON.stringify({ ok:'yes', exp: Date.now() + AUTH_TTL }));
+    }
+
+    function applyAuthState(){
+      const loggedIn = isLoggedIn();
+      const btn       = document.getElementById('loginBtn');
+      const sections  = document.getElementById('protectedSections');
+      const indicator = document.getElementById('adminIndicator');
+
+      if(loggedIn){
+        sections.classList.remove('hidden');
+        indicator.classList.add('visible');
+        btn.className = 'login-btn signout';
+        btn.onclick   = doLogout;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Log ud`;
+      } else {
+        sections.classList.add('hidden');
+        indicator.classList.remove('visible');
+        btn.className = 'login-btn signin';
+        btn.onclick   = openLoginModal;
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Log ind`;
+      }
+    }
+
+    function doLogout(){
+      localStorage.removeItem('padelAuth');
+      applyAuthState();
+    }
+
+    // ─── Modal ────────────────────────────────────────────────────────────────
+    function openLoginModal(){
+      _pendingUrl = '';
+      document.getElementById('pwInput').value = '';
+      document.getElementById('pwError').textContent = '';
+      document.getElementById('authOverlay').classList.add('open');
+      setTimeout(() => document.getElementById('pwInput').focus(), 50);
+    }
+
+    function openPage(url){
+      if(isLoggedIn()){ window.location.href = url; return; }
+      _pendingUrl = url;
+      openLoginModal();
+    }
+
+    function closeAuth(){
+      document.getElementById('authOverlay').classList.remove('open');
+      _pendingUrl = '';
+    }
+
+    async function submitAuth(){
+      const pw   = document.getElementById('pwInput').value;
+      const hash = await sha256(pw);
+      if(hash === PW_HASH){
+        setLoggedIn();
+        vibrate(50);
+        closeAuth();
+        applyAuthState();
+        if(_pendingUrl){ window.location.href = _pendingUrl; }
+      } else {
+        document.getElementById('pwError').textContent = 'Forkert adgangskode – prøv igen.';
+        document.getElementById('authModal').classList.add('shake');
+        vibrate(150);
+        setTimeout(() => document.getElementById('authModal').classList.remove('shake'), 400);
+        document.getElementById('pwInput').select();
+      }
+    }
+
+    document.getElementById('pwInput').addEventListener('keydown', e => {
+      if(e.key === 'Enter')  submitAuth();
+      if(e.key === 'Escape') closeAuth();
+    });
+    document.getElementById('authOverlay').addEventListener('click', e => {
+      if(e.target === document.getElementById('authOverlay')) closeAuth();
+    });
+
+    applyAuthState();
+
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+</body>
+</html>

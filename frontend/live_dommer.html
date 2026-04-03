@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Padel – Live Dommer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    /* ── Tokens ──────────────────────────────────────────────────────── */
+    :root{
+      --bg:#080d1a; --panel:#0b1220; --panel2:#0f1829;
+      --fg:#e5e7eb; --muted:#475569; --muted2:#64748b; --muted3:#94a3b8;
+      --border:#1a2840; --border2:#253650;
+      --btn:#0d1829; --btnHover:#121f36;
+      --accent:#22d3ee; --accent2:#0891b2;
+      --good:#10b981; --goodBg:#0d2f22; --goodBorder:#164e44;
+      --bad:#ef4444; --badBg:#3b0d0d; --badBorder:#661616;
+      --ctrl-h:72px;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    html,body{
+      background:var(--bg); color:var(--fg);
+      font-family:'DM Sans',system-ui,sans-serif;
+      height:100%; overflow:hidden; user-select:none;
+    }
+    body::after{
+      content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background:radial-gradient(ellipse 60% 50% at var(--glow-x,50%) 50%,
+        rgba(34,211,238,.045) 0%,transparent 70%);
+    }
+
+    /* ── Shell ───────────────────────────────────────────────────────── */
+    .shell{
+      display:grid;
+      grid-template-rows: 48px 1fr var(--ctrl-h);
+      height:100vh; position:relative; z-index:1;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────────────── */
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      padding:0 14px; height:48px;
+      border-bottom:1px solid var(--border);
+      background:rgba(8,13,26,.92); backdrop-filter:blur(10px); flex-shrink:0;
+    }
+    .topbar-left{ display:flex; align-items:center; gap:10px; }
+    .logo{
+      width:28px; height:28px; display:grid; place-items:center; flex-shrink:0;
+      background:linear-gradient(135deg,#06252a,#0a3a43);
+      border:1px solid rgba(34,211,238,.3); border-radius:8px;
+    }
+    .logo svg{ width:16px; height:16px; }
+    .app-name{ font-family:'Syne',sans-serif; font-weight:800; font-size:14px; letter-spacing:-.2px; white-space:nowrap; }
+    .game-chip{
+      font-size:11px; color:var(--muted2);
+      padding:2px 8px; border:1px solid var(--border2); border-radius:6px;
+      font-family:'DM Mono',monospace; white-space:nowrap;
+      overflow:hidden; text-overflow:ellipsis; max-width:160px;
+    }
+    .topbar-right{ display:flex; align-items:center; gap:6px; }
+    .tb-btn{
+      display:flex; align-items:center; gap:5px;
+      padding:6px 10px; border-radius:8px; border:1px solid var(--border2);
+      background:var(--btn); color:var(--muted3); cursor:pointer;
+      font-family:'DM Sans',sans-serif; font-size:12px;
+      transition:background .12s,color .12s; white-space:nowrap;
+    }
+    .tb-btn:hover{ background:var(--btnHover); color:var(--fg); }
+    .tb-btn svg{ flex-shrink:0; }
+    .sync-dot{
+      width:7px; height:7px; border-radius:50%;
+      background:var(--muted2); transition:background .3s; flex-shrink:0;
+    }
+    .sync-dot.ok { background:var(--good); box-shadow:0 0 6px var(--good); }
+    .sync-dot.err{ background:var(--bad); }
+
+    /* ── Arena ───────────────────────────────────────────────────────── */
+    .arena{
+      display:grid; grid-template-columns:1fr 1fr;
+      height:100%; min-height:0; align-items:stretch; position:relative;
+    }
+    .arena::after{
+      content:''; position:absolute; top:5%; bottom:5%; left:50%;
+      width:1px; background:var(--border); transform:translateX(-50%);
+      pointer-events:none;
+    }
+    .team-panel{
+      display:flex; flex-direction:column;
+      padding:10px 16px; position:relative; overflow:hidden;
+      transition:background .4s; min-height:0; container-type:size;
+    }
+    .team-panel.server{ background:linear-gradient(135deg,rgba(34,211,238,.05) 0%,transparent 60%); }
+    .server-stripe{
+      position:absolute; top:0; left:0; right:0; height:3px;
+      background:linear-gradient(90deg,var(--accent),transparent);
+      opacity:0; transition:opacity .3s;
+    }
+    .team-panel.server .server-stripe{ opacity:1; }
+
+    .team-identity{ display:flex; align-items:baseline; gap:8px; margin-bottom:4px; flex-wrap:wrap; flex-shrink:0; }
+    .team-name{
+      font-family:'Syne',sans-serif; font-weight:900;
+      font-size:clamp(15px,2.5cqh,36px); line-height:1; letter-spacing:-.5px;
+      color:var(--fg); transition:color .2s; background:transparent;
+      border:none; border-bottom:1px solid transparent; outline:none;
+      cursor:text; width:100%; min-width:0; font-family:'Syne',sans-serif;
+    }
+    .team-name:focus{ border-bottom-color:var(--accent); }
+    .team-panel.server .team-name{ color:#fff; }
+    .server-pill{
+      display:none; align-items:center; padding:2px 8px; border-radius:999px;
+      background:var(--accent); color:#080d1a;
+      font-size:clamp(9px,1.1vw,11px); font-weight:700; letter-spacing:.5px; white-space:nowrap; flex-shrink:0;
+    }
+    .team-panel.server .server-pill{ display:inline-flex; }
+
+    .team-players{
+      font-size:clamp(10px,1.8cqh,14px); color:var(--muted3);
+      display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; flex-shrink:0;
+    }
+    .player-input{
+      background:transparent; border:none; border-bottom:1px solid transparent;
+      outline:none; color:var(--muted3); font-size:inherit; font-family:inherit;
+      cursor:text; min-width:40px; transition:border-color .12s, color .12s;
+    }
+    .player-input:focus{ border-bottom-color:var(--border2); color:var(--fg); }
+    .player-sep{ color:var(--muted); }
+
+    .score-layout{ flex:1; min-height:0; display:flex; flex-direction:column; gap:0; }
+    .point-section{
+      flex:1; min-height:0; display:flex; flex-direction:column;
+      align-items:stretch; justify-content:center;
+      overflow:hidden; padding-bottom:6px;
+      /*  inline-size container: cqi resolves against this element's inner width.
+          cqh still resolves against the nearest size container (.team-panel).    */
+      container-type:inline-size;
+    }
+    .point-label{
+      font-size:10px; font-weight:600; letter-spacing:1.5px;
+      text-transform:uppercase; color:var(--muted2);
+      margin-bottom:2px; flex-shrink:0; text-align:center;
+    }
+    .point-value{
+      font-family:'Syne',sans-serif; font-weight:900;
+      /*  cqi  = inner width of .point-section  (inline-size container)
+          cqh  = height of .team-panel           (size container)
+          Syne 900 "Ad" glyphs are ~0.75 em wide each → 2 chars ≈ 1.5em.
+          40cqi keeps "Ad" inside at all widths with comfortable margin.
+          65cqh is the height cap so it stays tall on large screens.          */
+      font-size:clamp(40px, min(65cqh, 40cqi), 400px);
+      line-height:.88; letter-spacing:-1px; color:#fff;
+      text-align:center; font-variant-numeric:tabular-nums; transition:color .15s;
+      width:100%; display:block;
+    }
+    .point-value.tb-mode{ color:var(--accent); }
+    @keyframes ptFlash{ 0%{transform:scale(1.05)} 100%{transform:scale(1)} }
+    .point-value.flash{ animation:ptFlash .18s ease-out; }
+
+    .secondary-row{
+      flex-shrink:0; display:flex; gap:20px;
+      padding-top:8px; border-top:1px solid var(--border); margin-bottom:6px;
+    }
+    .sec-block{ display:flex; flex-direction:column; gap:2px; }
+    .sec-label{ font-size:10px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); }
+    .sec-value{
+      font-family:'Syne',sans-serif; font-weight:800;
+      font-size:clamp(22px,4cqh,56px); line-height:1; color:var(--muted3); transition:color .2s;
+    }
+    .sec-value.active{ color:var(--fg); }
+
+    .sets-history{ flex-shrink:0; display:flex; gap:5px; flex-wrap:wrap; min-height:20px; }
+    .set-pill{
+      padding:2px 8px; border-radius:6px;
+      background:var(--panel2); border:1px solid var(--border2);
+      font-family:'DM Mono',monospace; font-size:11px; color:var(--muted3); white-space:nowrap;
+    }
+    .set-pill.win{ border-color:rgba(34,211,238,.35); color:var(--accent); }
+
+    .swapSides{ direction:rtl; }
+    .swapSides .team-panel{ direction:ltr; }
+
+    /* ── Scoring bar ─────────────────────────────────────────────────── */
+    .ctrl-bar{
+      display:grid; grid-template-columns:1fr auto 1fr; gap:6px; align-items:center;
+      padding:0 10px; border-top:1px solid var(--border);
+      background:rgba(8,13,26,.96); backdrop-filter:blur(10px);
+    }
+    .score-btn{
+      display:flex; align-items:center; justify-content:center; gap:6px;
+      height:52px; border-radius:12px; border:none; cursor:pointer;
+      font-family:'Syne',sans-serif; font-weight:800; font-size:16px;
+      transition:opacity .1s, transform .08s;
+    }
+    .score-btn:active{ transform:scale(.96); }
+    .score-btn-a{
+      background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(34,211,238,.08));
+      border:1px solid rgba(34,211,238,.3); color:var(--accent);
+    }
+    .score-btn-a:hover{ background:rgba(34,211,238,.22); }
+    .score-btn-b{
+      background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.04));
+      border:1px solid var(--border2); color:var(--fg);
+    }
+    .score-btn-b:hover{ background:rgba(255,255,255,.1); }
+    .score-btn.disabled{ opacity:.3; cursor:not-allowed; pointer-events:none; }
+
+    .ctrl-center{ display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .ctrl-mini-row{ display:flex; gap:4px; }
+    .mini-btn{
+      display:flex; align-items:center; justify-content:center; gap:3px;
+      padding:5px 9px; border-radius:8px; border:1px solid var(--border2);
+      background:var(--btn); color:var(--muted3); cursor:pointer;
+      font-family:'DM Sans',sans-serif; font-size:11px;
+      transition:background .12s, color .12s;
+    }
+    .mini-btn:hover{ background:var(--btnHover); color:var(--fg); }
+    .mini-btn.danger{ background:var(--badBg); border-color:var(--badBorder); color:var(--bad); }
+    .mini-btn.danger:hover{ background:#451010; }
+    .ctrl-panel-toggle{
+      padding:3px 10px; border-radius:6px; border:1px solid var(--border2);
+      background:transparent; color:var(--muted); cursor:pointer;
+      font-size:10px; font-family:'DM Sans',sans-serif; letter-spacing:.5px;
+      transition:color .12s, border-color .12s;
+    }
+    .ctrl-panel-toggle:hover{ color:var(--muted3); border-color:var(--border2); }
+    .ctrl-panel-toggle.active{ color:var(--accent); border-color:rgba(34,211,238,.4); }
+
+    /* ── Settings panel ─────────────────────────────────────────────── */
+    .settings-overlay{
+      display:none; position:fixed; inset:0; z-index:19;
+    }
+    .settings-overlay.open{ display:block; }
+
+    .settings-panel{
+      position:fixed; left:0; right:0;
+      bottom:calc(var(--ctrl-h) + 48px); /* above ctrl-bar, below topbar */
+      transform:translateY(100%) translateY(calc(var(--ctrl-h) + 48px));
+      transition:transform .25s cubic-bezier(.4,0,.2,1);
+      background:rgba(11,18,32,.97); border-top:1px solid var(--border2);
+      border-bottom:1px solid var(--border);
+      z-index:20; padding:16px;
+      display:grid; grid-template-columns:1fr 1fr; gap:14px 24px;
+      backdrop-filter:blur(16px);
+    }
+    .settings-panel.open{
+      transform:translateY(0);
+    }
+
+    .sp-group{ display:flex; flex-direction:column; gap:8px; }
+    .sp-title{
+      font-size:10px; font-weight:600; letter-spacing:1.2px;
+      text-transform:uppercase; color:var(--muted2); margin-bottom:2px;
+    }
+    .sp-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px; }
+    .sp-select{
+      background:var(--btn); border:1px solid var(--border2); color:var(--fg);
+      padding:5px 8px; border-radius:8px; font-size:12px; font-family:'DM Sans',sans-serif;
+    }
+    .sp-toggle{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted3); cursor:pointer; }
+    .sp-toggle input{ width:15px; height:15px; accent-color:var(--accent); }
+    .set-hist-panel{ display:flex; flex-direction:column; gap:4px; max-height:160px; overflow-y:auto; }
+    .sh-row{
+      display:flex; justify-content:space-between;
+      padding:5px 8px; background:var(--panel); border:1px solid var(--border);
+      border-radius:7px; font-size:12px;
+    }
+    .sh-lbl{ color:var(--muted2); }
+    .sh-score{ font-weight:600; font-family:'DM Mono',monospace; }
+
+    /* ── Splash / setup modal ────────────────────────────────────────── */
+    .splash{
+      position:fixed; inset:0; z-index:50;
+      background:rgba(8,13,26,.92); backdrop-filter:blur(6px);
+      display:flex; align-items:center; justify-content:center; padding:16px;
+    }
+    .splash.hide{ display:none !important; }
+
+    .splash-card{
+      width:min(640px,100%); max-height:calc(100vh - 32px);
+      background:var(--panel2); border:1px solid var(--border2); border-radius:16px;
+      display:flex; flex-direction:column; overflow:hidden;
+      box-shadow:0 24px 64px rgba(0,0,0,.7);
+    }
+    .splash-hdr{
+      padding:20px 22px 16px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; gap:14px; flex-shrink:0;
+    }
+    .splash-logo{
+      width:42px; height:42px; display:grid; place-items:center; flex-shrink:0;
+      background:linear-gradient(135deg,#06252a,#0a3a43);
+      border:1px solid rgba(34,211,238,.3); border-radius:12px;
+      box-shadow:0 0 20px rgba(34,211,238,.1);
+    }
+    .splash-logo svg{ width:24px; height:24px; }
+    .splash-title{ font-family:'Syne',sans-serif; font-weight:800; font-size:19px; }
+    .splash-sub{ font-size:13px; color:var(--muted2); margin-top:3px; }
+
+    .splash-body{
+      padding:18px 22px; overflow-y:auto; flex:1;
+      display:flex; flex-direction:column; gap:14px;
+    }
+    .field-row{
+      display:grid; grid-template-columns:130px 1fr; gap:12px; align-items:center;
+    }
+    .field-row label{ font-size:14px; color:var(--muted2); }
+
+    .s-input, .s-select{
+      background:#0b1220; border:1px solid var(--border2); color:var(--fg);
+      padding:10px 14px; border-radius:10px; font-size:15px;
+      font-family:'DM Sans',sans-serif; width:100%;
+      min-width:0; min-height:44px; transition:border-color .12s;
+    }
+    .s-input:focus, .s-select:focus{ outline:none; border-color:var(--accent); }
+
+    .radio-group{ display:flex; gap:12px; flex-wrap:wrap; }
+    label.radio{ display:flex; gap:8px; align-items:center; font-size:14px; cursor:pointer; color:var(--fg); }
+    label.radio input[type=radio],
+    label.radio input[type=checkbox]{
+      width:16px; height:16px; accent-color:var(--accent); flex-shrink:0;
+    }
+    .warn-text{ font-size:12px; color:var(--muted); min-height:16px; }
+
+    .splash-footer{
+      padding:14px 22px 20px; border-top:1px solid var(--border); flex-shrink:0;
+    }
+    .btn-start{
+      width:100%; padding:13px; border:none; border-radius:12px; cursor:pointer;
+      background:linear-gradient(135deg,var(--accent2),var(--accent));
+      color:#080d1a; font-weight:800; font-family:'Syne',sans-serif; font-size:16px;
+      letter-spacing:.3px; transition:opacity .12s;
+    }
+    .btn-start:hover{ opacity:.9; }
+
+    /* ── Splash tabs ─────────────────────────────────────────────────── */
+    .splash-tabs{
+      display:flex; border-bottom:1px solid var(--border); flex-shrink:0;
+    }
+    .splash-tab{
+      flex:1; padding:12px; text-align:center; font-size:13px; font-weight:500;
+      color:var(--muted2); cursor:pointer; border-bottom:2px solid transparent;
+      margin-bottom:-1px; transition:color .12s, border-color .12s; user-select:none;
+    }
+    .splash-tab:hover{ color:var(--muted3); }
+    .splash-tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+    .splash-pane{ display:none; }
+    .splash-pane.active{ display:flex; flex-direction:column; gap:14px; }
+
+    /* Existing games list */
+    .game-list{ display:flex; flex-direction:column; gap:6px; }
+    .game-item{
+      display:flex; align-items:center; gap:10px;
+      padding:10px 12px; border-radius:10px;
+      background:var(--panel); border:1px solid var(--border);
+      cursor:pointer; transition:border-color .12s;
+    }
+    .game-item:hover{ border-color:var(--accent); }
+    .game-item-info{ flex:1; min-width:0; }
+    .game-item-name{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .game-item-meta{ font-size:11px; color:var(--muted2); margin-top:2px; }
+    .game-item-btn{
+      padding:5px 12px; border-radius:8px; border:none; flex-shrink:0;
+      background:linear-gradient(135deg,var(--accent2),var(--accent));
+      color:#080d1a; font-weight:700; font-family:'Syne',sans-serif; font-size:12px;
+      cursor:pointer; transition:opacity .12s;
+    }
+    .game-item-btn:hover{ opacity:.85; }
+    .game-list-empty{ font-size:13px; color:var(--muted2); padding:8px 0; text-align:center; }
+
+    /* ── Portrait ────────────────────────────────────────────────────── */
+    @media(orientation:portrait),(max-width:540px){
+      .arena{
+        grid-template-columns:1fr; grid-template-rows:1fr 1fr; height:100%;
+      }
+      .arena::after{
+        top:50%; bottom:auto; left:5%; right:5%;
+        width:auto; height:1px; transform:translateY(-50%);
+      }
+      .server-stripe{
+        top:0; bottom:0; left:0; right:auto; width:3px; height:auto;
+        background:linear-gradient(180deg,var(--accent),transparent);
+      }
+      .swapSides{ direction:ltr; }
+      .swapSides #teamA{ order:2; }
+      .swapSides #teamB{ order:1; }
+      .settings-panel{ grid-template-columns:1fr; }
+      .field-row{ grid-template-columns:1fr; gap:5px; }
+    }
+
+    /* ── Site nav ─────────────────────────────────────────────────── */
+    .menu-link{
+      display:inline-flex; align-items:center; gap:5px;
+      padding:5px 10px; border-radius:8px;
+      color:var(--muted2,#64748b); text-decoration:none; font-size:12px;
+      border:1px solid var(--border,#334155); background:var(--btn,#0d1829);
+      transition:color .12s, background .12s; white-space:nowrap; flex-shrink:0;
+    }
+    .menu-link:hover{ color:var(--fg,#e5e7eb); background:var(--btnHover,#111f33); }
+    .menu-link svg{ flex-shrink:0; }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+</head>
+<body>
+
+<!-- ── Splash ──────────────────────────────────────────────────────────── -->
+<div class="splash" id="splash">
+  <div class="splash-card">
+    <div class="splash-hdr">
+      <div class="splash-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="6" r="3"/><path d="M9 15 L18 6"/><path d="M3 21 L9 15"/>
+        </svg>
+      </div>
+      <div>
+        <div class="splash-title">Live Dommer</div>
+        <div class="splash-sub">Åbn en eksisterende kamp eller opret en ny.</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="splash-tabs">
+      <div class="splash-tab active" data-pane="existing">Åbn kamp</div>
+      <div class="splash-tab" data-pane="new">Ny kamp</div>
+    </div>
+
+    <div class="splash-body">
+      <!-- Pane: existing games -->
+      <div class="splash-pane active" id="pane-existing">
+        <div class="game-list" id="gameList">
+          <div class="game-list-empty">Henter kampe…</div>
+        </div>
+      </div>
+
+      <!-- Pane: new game -->
+      <div class="splash-pane" id="pane-new">
+      <div class="field-row">
+        <label>Matchtype</label>
+        <div class="radio-group">
+          <label class="radio"><input type="radio" name="mtype" value="single" checked/> Single</label>
+          <label class="radio"><input type="radio" name="mtype" value="double"/> Double</label>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <label>Hold A</label>
+        <select class="s-select" id="selA"></select>
+      </div>
+      <div class="field-row">
+        <label>Hold B</label>
+        <select class="s-select" id="selB"></select>
+      </div>
+
+      <div class="field-row">
+        <label>Sæt</label>
+        <div class="radio-group">
+          <label class="radio"><input type="radio" name="sets" value="best3" checked/> Bedst af 3</label>
+          <label class="radio"><input type="radio" name="sets" value="best5"/> Bedst af 5</label>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <label>Deuce</label>
+        <div class="radio-group">
+          <label class="radio"><input type="radio" name="splashDeuce" value="advantage" checked/> Fordel</label>
+          <label class="radio"><input type="radio" name="splashDeuce" value="golden"/> Golden point</label>
+        </div>
+        </div>
+      </div>
+
+
+      <div class="warn-text" id="warn"></div>
+    </div>
+
+        <button class="btn-start" id="btnStart" style="margin-top:4px">Start kamp</button>
+      </div><!-- /pane-new -->
+    </div><!-- /splash-body -->
+  </div>
+</div>
+
+<!-- ── Shell ───────────────────────────────────────────────────────────── -->
+<div class="shell">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a href="index.html" class="menu-link" title="Tilbage til menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Menu
+      </a>
+            <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="6" r="3"/><path d="M9 15 L18 6"/><path d="M3 21 L9 15"/>
+        </svg>
+      </div>
+      <span class="app-name">Live Dommer</span>
+      <span class="game-chip" id="gameChip">—</span>
+    </div>
+    <div class="topbar-right">
+      <div class="sync-dot" id="syncDot"></div>
+      <button class="tb-btn" id="btnFS">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+        </svg>
+        Fuldskærm
+      </button>
+    </div>
+  </div>
+
+  <!-- Arena -->
+  <div id="arena" class="arena">
+    <div id="teamA" class="team-panel">
+      <div class="server-stripe"></div>
+      <div class="team-identity">
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+          <input class="team-name" id="teamAName" placeholder="Hold A"/>
+        </div>
+        <div class="server-pill">SERVER</div>
+      </div>
+      <div class="team-players">
+        <input class="player-input" id="A1" placeholder="Spiller 1"/>
+        <span class="player-sep">·</span>
+        <input class="player-input" id="A2" placeholder="Spiller 2"/>
+      </div>
+      <div class="score-layout">
+        <div class="point-section">
+          <div class="point-label">Point</div>
+          <div class="point-value" id="pointsA">0</div>
+        </div>
+        <div class="secondary-row">
+          <div class="sec-block"><div class="sec-label">Sæt</div><div class="sec-value" id="setsA">0</div></div>
+          <div class="sec-block"><div class="sec-label">Partier</div><div class="sec-value" id="gamesA">0</div></div>
+        </div>
+        <div class="sets-history" id="histA"></div>
+      </div>
+    </div>
+
+    <div id="teamB" class="team-panel">
+      <div class="server-stripe"></div>
+      <div class="team-identity">
+        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+          <input class="team-name" id="teamBName" placeholder="Hold B"/>
+        </div>
+        <div class="server-pill">SERVER</div>
+      </div>
+      <div class="team-players">
+        <input class="player-input" id="B1" placeholder="Spiller 1"/>
+        <span class="player-sep">·</span>
+        <input class="player-input" id="B2" placeholder="Spiller 2"/>
+      </div>
+      <div class="score-layout">
+        <div class="point-section">
+          <div class="point-label">Point</div>
+          <div class="point-value" id="pointsB">0</div>
+        </div>
+        <div class="secondary-row">
+          <div class="sec-block"><div class="sec-label">Sæt</div><div class="sec-value" id="setsB">0</div></div>
+          <div class="sec-block"><div class="sec-label">Partier</div><div class="sec-value" id="gamesB">0</div></div>
+        </div>
+        <div class="sets-history" id="histB"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scoring bar -->
+  <div class="ctrl-bar">
+    <button class="score-btn score-btn-a" id="btnA">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M12 5v14M5 12h14"/></svg>
+      <span id="btnALabel">Hold A</span>
+    </button>
+
+    <div class="ctrl-center">
+      <div class="ctrl-mini-row">
+        <button class="mini-btn" id="btnSrv" title="Ctrl+S">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg>
+          Server
+        </button>
+        <button class="mini-btn" id="btnSwap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12"><path d="M7 16V4m0 0L3 8m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
+          Side
+        </button>
+        <button class="mini-btn danger" id="btnUndo" title="Backspace">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12"><path d="M3 7h10a5 5 0 0 1 0 10H9"/><path d="M3 7l4-4M3 7l4 4"/></svg>
+          Fortryd
+        </button>
+      </div>
+      <button class="ctrl-panel-toggle" id="btnToggleSettings">▲ Indstillinger</button>
+    </div>
+
+    <button class="score-btn score-btn-b" id="btnB">
+      <span id="btnBLabel">Hold B</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </div>
+
+</div><!-- /shell -->
+
+<!-- Settings overlay (click-outside) -->
+<div class="settings-overlay" id="settingsOverlay"></div>
+
+<!-- Settings panel -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="sp-group">
+    <div class="sp-title">Format</div>
+    <div class="sp-row">
+      <select class="sp-select" id="formatSel">
+        <option value="best3">Bedst af 3</option>
+        <option value="best5">Bedst af 5</option>
+      </select>
+    </div>
+    <div class="sp-row" style="margin-top:4px">
+      <span style="font-size:12px;color:var(--muted3)">Deuce</span>
+      <select id="deuceSel" style="font-size:12px;padding:4px 8px;border-radius:8px;background:var(--btn);border:1px solid var(--border2);color:var(--fg)">
+        <option value="advantage">Fordel (Advantage)</option>
+        <option value="golden">Golden point</option>
+      </select>
+    </div>
+    <label class="sp-toggle"><input type="checkbox" id="autoSide"/> Auto sidebytte</label>
+    <button class="mini-btn danger" id="btnReset" style="margin-top:4px;width:100%;justify-content:center">
+      Nulstil kamp
+    </button>
+  </div>
+  <div class="sp-group">
+    <div class="sp-title">Sæthistorik</div>
+    <div class="set-hist-panel" id="setHistPanel">
+      <div style="font-size:12px;color:var(--muted)">Ingen sæt spillet endnu.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+function qs(sel){ return document.querySelector(sel); }
+function on(el,ev,fn){ el.addEventListener(ev,fn); }
+function debounce(fn,w){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a),w); }; }
+function uid(len=8){ const s='abcdefghijklmnopqrstuvwxyz0123456789'; let o=''; for(let i=0;i<len;i++) o+=s[Math.floor(Math.random()*s.length)]; return o; }
+function shallowClone(o){ return JSON.parse(JSON.stringify(o)); }
+function pointLabel(n,other){ if(n<=0)return '0';if(n===1)return '15';if(n===2)return '30';if(n===3)return '40';if(other>=3&&n===other)return '40';return 'Ad'; }
+function isGolden(){ return s._info.deuce === 'golden'; }
+function saveLS(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
+function loadLS(k,fb){ try{return JSON.parse(localStorage.getItem(k))??fb;}catch(e){return fb;} }
+function ymd(){ const d=new Date(); return `${d.getFullYear()}-${('0'+(d.getMonth()+1)).slice(-2)}-${('0'+d.getDate()).slice(-2)}`; }
+
+// ── Default state ────────────────────────────────────────────────────────
+const defaultState = ()=>({
+  setsA:0,setsB:0,gamesA:0,gamesB:0,pointsA:0,pointsB:0,
+  tbA:0,tbB:0,_tbCount:0,inTiebreak:false,
+  server:'A',serverIdxA:0,serverIdxB:0,
+  sideSwapped:false,history:[],setHistory:[],finished:false,
+  _info:{name:'',court:'',format:'best3',tiebreak:'on',deuce:'advantage',created:Date.now(),
+         teamA:'',teamB:'',teamAId:'',teamBId:'',playersA:['',''],playersB:['','']}
+});
+
+let s = defaultState();
+let gameId = '';
+let clientId = 'ld-' + uid(8);
+let applyingRemote = false;
+let fbRef = null;
+let prevPtA = null, prevPtB = null;
+const pendingWriteIds = new Set(); // tracks in-flight local writes
+
+// ── Splash: team loading ─────────────────────────────────────────────────
+let teams = {};
+
+function fillTeamSelects(){
+  const type = document.querySelector('input[name="mtype"]:checked').value;
+  [qs('#selA'), qs('#selB')].forEach(sel => {
+    const old = sel.value;
+    sel.innerHTML = '<option value="">— vælg hold —</option>';
+    Object.entries(teams)
+      .sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''))
+      .forEach(([id,t])=>{
+        if(type && t.type && t.type !== type) return;
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent = `${t.name} · ${(t.players||[]).filter(Boolean).join(' & ')}`;
+        sel.appendChild(o);
+      });
+    if(old) sel.value = old;
+  });
+  computeSplashName();
+}
+
+function computeSplashName(){
+  const a = teams[qs('#selA').value] || {};
+  const b = teams[qs('#selB').value] || {};
+  const aP = (a.players||[]).filter(Boolean);
+  const bP = (b.players||[]).filter(Boolean);
+  // matchName input removed; name auto-generated at start time
+  qs('#warn').textContent = (!aP.length||!bP.length) ? 'Tip: Vælg begge hold for korrekt navn' : '';
+}
+
+// Splash bindings
+['change','input'].forEach(ev=>{
+  document.querySelectorAll('input[name="mtype"]').forEach(r=>r.addEventListener(ev,()=>{ fillTeamSelects(); }));
+});
+on(qs('#selA'), 'change', computeSplashName);
+on(qs('#selB'), 'change', computeSplashName);
+document.querySelectorAll('input[name="sets"]').forEach(r=>r.addEventListener('change', computeSplashName));
+
+on(qs('#btnStart'), 'click', async ()=>{
+  const selAVal = qs('#selA').value;
+  const selBVal = qs('#selB').value;
+  if(!selAVal || !selBVal){ qs('#warn').textContent='Vælg begge hold.'; return; }
+
+  const id = `ld-${ymd().replace(/-/g,'')}-${uid(5)}`;
+  gameId = id;
+  clientId = 'ld-' + uid(8);
+  qs('#gameChip').textContent = id;
+
+  const format = document.querySelector('input[name="sets"]:checked').value;
+  const tb     = 'on'; // tie-break always on (option removed from splash)
+  const a      = teams[selAVal] || {};
+  const b      = teams[selBVal] || {};
+  const name   = `${ymd()} ${(a.players||[]).filter(Boolean).join('&')||a.name||'Hold A'} vs ${(b.players||[]).filter(Boolean).join('&')||b.name||'Hold B'}`;
+
+  s = defaultState();
+  s._info.name     = name;
+  s._info.format   = format;
+  s._info.tiebreak = tb;
+  s._info.deuce = document.querySelector('input[name="splashDeuce"]:checked')?.value || 'advantage';
+  s._info.teamA    = a.name || '';
+  s._info.teamB    = b.name || '';
+  s._info.playersA = [(a.players||[''])[0]||'', (a.players||['',''])[1]||''];
+  s._info.playersB = [(b.players||[''])[0]||'', (b.players||['',''])[1]||''];
+  s._info.teamAId  = selAVal;
+  s._info.teamBId  = selBVal;
+
+  prevPtA = null; prevPtB = null;
+
+  // Connect Firebase then push initial state
+  fbRef = firebase.database().ref('padel-score/games/' + id);
+  s._meta = { sender: clientId, ts: Date.now() };
+  await fbRef.set(s);
+
+  // Listen for remote changes (other referees or viewers)
+  fbRef.on('value', snap=>{
+    const val = snap.val(); if(!val) return;
+    // Skip only writes WE sent (matched by unique wid); any other source → always apply
+    if(val._meta?.wid && pendingWriteIds.has(val._meta.wid)){
+      pendingWriteIds.delete(val._meta.wid);
+      return;
+    }
+    applyingRemote = true;
+    const copy = shallowClone(val); delete copy._meta;
+    // Normalise Firebase arrays-as-objects
+    const toArr=v=>Array.isArray(v)?v:(v&&typeof v==='object'?Object.keys(v).sort((a,b)=>+a-+b).map(k=>v[k]):[]);
+    copy.history    = toArr(copy.history);
+    copy.setHistory = toArr(copy.setHistory);
+    if(copy._info){ copy._info.playersA=toArr(copy._info.playersA); copy._info.playersB=toArr(copy._info.playersB); }
+    // Firebase is source of truth; keep local history only if it's longer (for undo)
+    const prevHistory = Array.isArray(s.history) ? s.history : [];
+    s = copy;
+    if(prevHistory.length > s.history.length) s.history = prevHistory;
+    applyingRemote = false;
+    prevPtA = null; prevPtB = null;
+    render(); setSyncState('ok');
+  }, ()=> setSyncState('err'));
+
+  render();
+  qs('#splash').classList.add('hide');
+});
+
+// ── Sync ─────────────────────────────────────────────────────────────────
+function setSyncState(state){
+  const d = qs('#syncDot');
+  d.className = 'sync-dot' + (state==='ok'?' ok':state==='err'?' err':'');
+}
+
+function pushSync(){
+  if(applyingRemote || !fbRef) return;
+  const out = shallowClone(s);
+  const wid = uid(8);
+  pendingWriteIds.add(wid);
+  out._meta = { sender: clientId, wid, ts: Date.now() };
+  fbRef.set(out).then(()=>setSyncState('ok')).catch(e=>{ pendingWriteIds.delete(wid); setSyncState('err'); });
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function doFlash(el){
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
+function buildSetHistory(){
+  const h = s.setHistory || [];
+  const hA = qs('#histA'), hB = qs('#histB'), panel = qs('#setHistPanel');
+  hA.innerHTML = ''; hB.innerHTML = '';
+  if(!h.length){
+    panel.innerHTML = '<div style="font-size:12px;color:var(--muted)">Ingen sæt spillet endnu.</div>';
+    return;
+  }
+  panel.innerHTML = '';
+  h.forEach((it,i)=>{
+    const wonA = it.a > it.b;
+    const pA = document.createElement('span'); pA.className='set-pill'+(wonA?' win':''); pA.textContent=it.a+(it.tb?'*':'');
+    const pB = document.createElement('span'); pB.className='set-pill'+(!wonA?' win':''); pB.textContent=it.b+(it.tb?'*':'');
+    hA.appendChild(pA); hB.appendChild(pB);
+    const row = document.createElement('div'); row.className='sh-row';
+    row.innerHTML=`<span class="sh-lbl">Sæt ${i+1}</span><span class="sh-score">${it.a}–${it.b}${it.tb?` (TB ${it.tb})`:''}</span>`;
+    panel.appendChild(row);
+  });
+}
+
+function render(){
+  const srvA = s.server === 'A';
+  qs('#teamA').classList.toggle('server', srvA);
+  qs('#teamB').classList.toggle('server', !srvA);
+  document.body.style.setProperty('--glow-x', srvA ? '25%' : '75%');
+
+  // Names (skip if focused)
+  if(document.activeElement !== qs('#teamAName')) qs('#teamAName').value = s._info.teamA || '';
+  if(document.activeElement !== qs('#teamBName')) qs('#teamBName').value = s._info.teamB || '';
+  if(document.activeElement !== qs('#A1')) qs('#A1').value = s._info.playersA[0] || '';
+  if(document.activeElement !== qs('#A2')) qs('#A2').value = s._info.playersA[1] || '';
+  if(document.activeElement !== qs('#B1')) qs('#B1').value = s._info.playersB[0] || '';
+  if(document.activeElement !== qs('#B2')) qs('#B2').value = s._info.playersB[1] || '';
+
+  // Points
+  const pA = s.inTiebreak ? String(s.tbA) : pointLabel(s.pointsA, s.pointsB);
+  const pB = s.inTiebreak ? String(s.tbB) : pointLabel(s.pointsB, s.pointsA);
+  const elA = qs('#pointsA'), elB = qs('#pointsB');
+  if(pA !== prevPtA){ elA.textContent=pA; doFlash(elA); prevPtA=pA; }
+  if(pB !== prevPtB){ elB.textContent=pB; doFlash(elB); prevPtB=pB; }
+  elA.classList.toggle('tb-mode', !!s.inTiebreak);
+  elB.classList.toggle('tb-mode', !!s.inTiebreak);
+
+  // Sets & games
+  const [sA,sB,gA,gB] = [s.setsA||0, s.setsB||0, s.gamesA||0, s.gamesB||0];
+  qs('#setsA').textContent=sA;  qs('#setsA').classList.toggle('active',sA>0);
+  qs('#setsB').textContent=sB;  qs('#setsB').classList.toggle('active',sB>0);
+  qs('#gamesA').textContent=gA; qs('#gamesA').classList.toggle('active',gA>0);
+  qs('#gamesB').textContent=gB; qs('#gamesB').classList.toggle('active',gB>0);
+
+  // Swap
+  qs('#arena').classList.toggle('swapSides', !!s.sideSwapped);
+
+  // History
+  buildSetHistory();
+
+  // Scoring buttons
+  qs('#btnA').classList.toggle('disabled', !!s.finished);
+  qs('#btnB').classList.toggle('disabled', !!s.finished);
+  qs('#btnALabel').textContent = s._info.teamA || 'Hold A';
+  qs('#btnBLabel').textContent = s._info.teamB || 'Hold B';
+
+  // Settings mirror
+  qs('#formatSel').value = s._info.format || 'best3';
+  qs('#deuceSel').value = s._info.deuce || 'advantage';
+
+  // Persist
+  if(gameId){ const ts=shallowClone(s); if(ts.history?.length>200) ts.history=ts.history.slice(-200); saveLS('padel:ld:'+gameId,ts); }
+}
+
+// ── Scoring engine ────────────────────────────────────────────────────────
+function pushHistory(){
+  const snap=shallowClone(s); delete snap.history;
+  s.history=s.history||[]; s.history.push(snap);
+  if(s.history.length>200) s.history.shift();
+}
+function rotateServer(){ if(s.server==='A'){s.serverIdxA=(s.serverIdxA+1)%2;s.server='B';}else{s.serverIdxB=(s.serverIdxB+1)%2;s.server='A';} }
+function startTiebreak(){ s.inTiebreak=true;s.tbA=0;s.tbB=0;s._tbCount=0;s.server=(s.server==='A')?'B':'A'; }
+function checkSetEnd(){ const n=(s._info.format||'best3')==='best5'?3:2; if(s.setsA>=n||s.setsB>=n) s.finished=true; }
+function recordSet(tb){ s.setHistory=s.setHistory||[]; s.setHistory.push({a:s.gamesA,b:s.gamesB,...(tb?{tb}:{})}); }
+function nextSetServer(){ s.server=(s.server==='A')?'B':'A'; }
+function maybeAutoSideSwap(){ if(qs('#autoSide').checked){ const g=s.gamesA+s.gamesB; if(g>0&&g%2===1) s.sideSwapped=!s.sideSwapped; } }
+
+function givePoint(team){
+  if(s.finished) return;
+  pushHistory();
+  if(s.inTiebreak){
+    if(team==='A') s.tbA++; else s.tbB++; s._tbCount++;
+    if(s._tbCount===1) s.server=(s.server==='A')?'B':'A';
+    else if(s._tbCount>1&&s._tbCount%2===1) s.server=(s.server==='A')?'B':'A';
+    if((s.tbA>=7||s.tbB>=7)&&Math.abs(s.tbA-s.tbB)>=2){
+      const wonA=s.tbA>s.tbB; if(wonA) s.setsA++; else s.setsB++;
+      recordSet(`${s.tbA}-${s.tbB}`);
+      s.gamesA=0;s.gamesB=0;s.pointsA=0;s.pointsB=0;s.inTiebreak=false;s.tbA=0;s.tbB=0;s._tbCount=0;
+      nextSetServer(); checkSetEnd();
+    }
+    render(); pushSync(); return;
+  }
+  if(team==='A') s.pointsA++; else s.pointsB++;
+  const a=s.pointsA,b=s.pointsB;
+  // Golden point: at deuce (3-3), next point wins
+  if(isGolden()&&a>=3&&b>=3&&a!==b){
+    const wonA=a>b; if(wonA) s.gamesA++; else s.gamesB++; s.pointsA=0;s.pointsB=0;
+    const tbOn2 = s._info.tiebreak !== 'off';
+    if(tbOn2&&s.gamesA===6&&s.gamesB===6){ startTiebreak(); }
+    else if((s.gamesA>=6||s.gamesB>=6)&&Math.abs(s.gamesA-s.gamesB)>=2){
+      if(s.gamesA>s.gamesB) s.setsA++; else s.setsB++; recordSet();
+      s.gamesA=0;s.gamesB=0; nextSetServer(); checkSetEnd();
+    } else { rotateServer(); maybeAutoSideSwap(); }
+    render(); pushSync(); return;
+  }
+  if((a>=4||b>=4)&&Math.abs(a-b)>=2){
+    const wonA=a>b; if(wonA) s.gamesA++; else s.gamesB++; s.pointsA=0;s.pointsB=0;
+    const tbOn = s._info.tiebreak !== 'off';
+    if(tbOn&&s.gamesA===6&&s.gamesB===6){ startTiebreak(); }
+    else if((s.gamesA>=6||s.gamesB>=6)&&Math.abs(s.gamesA-s.gamesB)>=2){
+      if(s.gamesA>s.gamesB) s.setsA++; else s.setsB++; recordSet();
+      s.gamesA=0;s.gamesB=0; nextSetServer(); checkSetEnd();
+    } else { rotateServer(); maybeAutoSideSwap(); }
+  }
+  render(); pushSync();
+}
+
+function undo(){ const h=s.history||[]; if(!h.length) return; const prev=h.pop(); const ki=s._info; s=Object.assign({},prev); if(!s._info) s._info=ki; s.history=h; prevPtA=null; prevPtB=null; render(); pushSync(); }
+function switchServer(){ pushHistory(); s.server=(s.server==='A')?'B':'A'; render(); pushSync(); }
+function swapSide(){ pushHistory(); s.sideSwapped=!s.sideSwapped; render(); pushSync(); }
+function resetAll(){ if(!confirm('Nulstil kampen?')) return; pushHistory(); const ki=shallowClone(s._info); s=defaultState(); s._info=ki; prevPtA=null; prevPtB=null; render(); pushSync(); }
+
+// ── Controls ──────────────────────────────────────────────────────────────
+on(qs('#btnA'),    'click', ()=>givePoint('A'));
+on(qs('#btnB'),    'click', ()=>givePoint('B'));
+on(qs('#btnSrv'),  'click', switchServer);
+on(qs('#btnSwap'), 'click', swapSide);
+on(qs('#btnUndo'), 'click', undo);
+on(qs('#btnReset'),'click', resetAll);
+on(qs('#btnFS'),   'click', async ()=>{ try{ if(!document.fullscreenElement) await document.documentElement.requestFullscreen(); else await document.exitFullscreen(); }catch(e){} });
+
+// Settings panel toggle
+const settingsPanel   = qs('#settingsPanel');
+const settingsOverlay = qs('#settingsOverlay');
+const settingsToggle  = qs('#btnToggleSettings');
+
+function openSettings(){
+  settingsPanel.classList.add('open');
+  settingsOverlay.classList.add('open');
+  settingsToggle.classList.add('active');
+  settingsToggle.textContent = '▼ Indstillinger';
+}
+function closeSettings(){
+  settingsPanel.classList.remove('open');
+  settingsOverlay.classList.remove('open');
+  settingsToggle.classList.remove('active');
+  settingsToggle.textContent = '▲ Indstillinger';
+}
+on(settingsToggle,   'click', ()=> settingsPanel.classList.contains('open') ? closeSettings() : openSettings());
+on(settingsOverlay,  'click', closeSettings);
+on(qs('#arena'),     'click', e=>{ if(!qs('#splash').classList.contains('hide')) return; closeSettings(); });
+
+// Settings changes
+on(qs('#formatSel'), 'change', e=>{ s._info.format=e.target.value; render(); pushSync(); });
+on(qs('#deuceSel'),  'change', e=>{ s._info.deuce=e.target.value; render(); pushSync(); });
+
+// Editable names/players
+const writeInfo = debounce(()=>{ render(); pushSync(); }, 400);
+on(qs('#teamAName'),'input',e=>{ s._info.teamA=e.target.value; writeInfo(); });
+on(qs('#teamBName'),'input',e=>{ s._info.teamB=e.target.value; writeInfo(); });
+on(qs('#A1'),'input',e=>{ s._info.playersA[0]=e.target.value; writeInfo(); });
+on(qs('#A2'),'input',e=>{ s._info.playersA[1]=e.target.value; writeInfo(); });
+on(qs('#B1'),'input',e=>{ s._info.playersB[0]=e.target.value; writeInfo(); });
+on(qs('#B2'),'input',e=>{ s._info.playersB[1]=e.target.value; writeInfo(); });
+
+// Keyboard
+on(document,'keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey){
+    if(e.key.toLowerCase()==='a'){ e.preventDefault(); givePoint('A'); }
+    if(e.key.toLowerCase()==='b'){ e.preventDefault(); givePoint('B'); }
+    if(e.key.toLowerCase()==='s'){ e.preventDefault(); switchServer(); }
+    if(e.key.toLowerCase()==='f'){ e.preventDefault(); qs('#btnFS').click(); }
+  }
+  if(e.key==='Backspace'){ e.preventDefault(); undo(); }
+});
+
+// ── Splash tab switching ──────────────────────────────────────────────────
+document.querySelectorAll('.splash-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.splash-tab,.splash-pane').forEach(el=>el.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('pane-'+tab.dataset.pane).classList.add('active');
+  });
+});
+
+// ── Load existing unstarted games ──────────────────────────────────────────
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+async function loadExistingGames(){
+  const list = document.getElementById('gameList');
+  try{
+    const snap = await firebase.database().ref('padel-score/games').get();
+    const all  = snap.val() || {};
+  const list = document.getElementById('gameList');
+
+  // Filter: not finished, zero activity (Klar)
+  const ready = Object.entries(all)
+    .filter(([id,g])=>{
+      if(g.finished) return false;
+      const z=(g.setsA|0)+(g.setsB|0)+(g.gamesA|0)+(g.gamesB|0)+(g.pointsA|0)+(g.pointsB|0);
+      return z===0 && !(g.setHistory||[]).length;
+    })
+    .sort((a,b)=>((b[1]._info?.created)||0)-((a[1]._info?.created)||0));
+
+  if(!ready.length){
+    list.innerHTML='<div class="game-list-empty">Ingen klar kampe fundet.<br>Opret en ny kamp nedenfor.</div>';
+    return;
+  }
+
+  list.innerHTML='';
+  ready.forEach(([id,g])=>{
+    const info = g._info||{};
+    const tA   = info.teamA||'Hold A', tB = info.teamB||'Hold B';
+    const item = document.createElement('div');
+    item.className = 'game-item';
+    item.innerHTML = `
+      <div class="game-item-info">
+        <div class="game-item-name">${escHtml(info.name||id)}</div>
+        <div class="game-item-meta">${escHtml(tA)} vs ${escHtml(tB)}${info.court?' · '+escHtml(info.court):''}</div>
+      </div>
+      <button class="game-item-btn">Åbn</button>`;
+    item.querySelector('button').addEventListener('click',()=>openExistingGame(id));
+    list.appendChild(item);
+  });
+  }catch(e){
+    list.innerHTML='<div class="game-list-empty">Fejl: '+e.message+'</div>';
+  }
+}
+
+function openExistingGame(id){
+  gameId   = id;
+  clientId = 'ld-' + uid(8);
+  qs('#gameChip').textContent = id;
+  qs('#splash').classList.add('hide');
+
+  fbRef = firebase.database().ref('padel-score/games/' + id);
+  fbRef.on('value', snap=>{
+    const val = snap.val();
+    if(!val){ render(); return; }
+    // Skip only writes WE sent (matched by unique wid); any other source → always apply
+    if(val._meta?.wid && pendingWriteIds.has(val._meta.wid)){
+      pendingWriteIds.delete(val._meta.wid);
+      return;
+    }
+    applyingRemote = true;
+    const copy = shallowClone(val); delete copy._meta;
+    // Normalise Firebase arrays-as-objects
+    const toArr=v=>Array.isArray(v)?v:(v&&typeof v==='object'?Object.keys(v).sort((a,b)=>+a-+b).map(k=>v[k]):[]);
+    copy.history    = toArr(copy.history);
+    copy.setHistory = toArr(copy.setHistory);
+    if(copy._info){ copy._info.playersA=toArr(copy._info.playersA); copy._info.playersB=toArr(copy._info.playersB); }
+    // Firebase is source of truth; keep local history only if it's longer (for undo)
+    const prevHistory = Array.isArray(s.history) ? s.history : [];
+    s = copy;
+    if(prevHistory.length > s.history.length) s.history = prevHistory;
+    applyingRemote = false;
+    prevPtA = null; prevPtB = null;
+    render(); setSyncState('ok');
+  }, ()=> setSyncState('err'));
+
+  render();
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+const directGameId = new URLSearchParams(location.search).get('game');
+
+firebase.auth().signInAnonymously().then(async ()=>{
+  setSyncState('');
+
+  if(directGameId){
+    // ?game= supplied → skip splash, connect straight to the existing game
+    gameId   = directGameId;
+    clientId = 'ld-' + uid(8);
+    qs('#gameChip').textContent = gameId;
+    qs('#splash').classList.add('hide');
+
+    fbRef = firebase.database().ref('padel-score/games/' + gameId);
+    fbRef.on('value', snap=>{
+      const val = snap.val();
+      if(!val){ render(); return; }              // game not yet written
+      if(val._meta?.wid && pendingWriteIds.has(val._meta.wid)){
+        pendingWriteIds.delete(val._meta.wid);
+        return;
+      }
+      applyingRemote = true;
+      const copy = shallowClone(val); delete copy._meta;
+      const toArr=v=>Array.isArray(v)?v:(v&&typeof v==='object'?Object.keys(v).sort((a,b)=>+a-+b).map(k=>v[k]):[]);
+      copy.history    = toArr(copy.history);
+      copy.setHistory = toArr(copy.setHistory);
+      if(copy._info){ copy._info.playersA=toArr(copy._info.playersA); copy._info.playersB=toArr(copy._info.playersB); }
+      const prevHistory = Array.isArray(s.history) ? s.history : [];
+      s = copy;
+      if(prevHistory.length > s.history.length) s.history = prevHistory;
+      applyingRemote = false;
+      prevPtA = null; prevPtB = null;
+      render(); setSyncState('ok');
+    }, ()=> setSyncState('err'));
+
+    render();
+  } else {
+    // No ?game= → show splash so user picks teams and format
+    const teamsSnap = await firebase.database().ref('padel-score/teams').get();
+    teams = teamsSnap.val() || {};
+    fillTeamSelects();
+    loadExistingGames().catch(()=>{
+      document.getElementById('gameList').innerHTML =
+        '<div class="game-list-empty">Kunne ikke hente kampe.</div>';
+    });
+  }
+}).catch(()=>{ qs('#warn').textContent='Forbindelsesfejl – tjek din internetforbindelse.'; });
+</script>
+</body>
+</html>

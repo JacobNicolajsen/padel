@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Point API</title>
+  <style>
+    :root{
+      --bg:#080d1a; --panel:#0b1220;
+      --fg:#e5e7eb; --muted:#475569; --muted2:#64748b;
+      --accent:#22d3ee; --accent2:#0891b2;
+      --good:#10b981; --goodBg:#0d2f22; --goodBorder:#164e44;
+      --bad:#ef4444;  --badBg:#3b0d0d;  --badBorder:#661616;
+      --warn:#f59e0b; --warnBg:#2f1d0a; --warnBorder:#664e16;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    html,body{
+      background:var(--bg); color:var(--fg);
+      font-family:'DM Sans',system-ui,sans-serif;
+      min-height:100%; display:flex; align-items:center; justify-content:center;
+    }
+    .card{
+      background:var(--panel); border-radius:16px;
+      padding:32px 28px; width:min(420px,100vw - 32px);
+      text-align:center; display:flex; flex-direction:column; gap:16px;
+    }
+    .icon{ font-size:48px; line-height:1; }
+    .title{ font-size:20px; font-weight:700; }
+    .badge{
+      display:inline-block; padding:6px 14px; border-radius:999px;
+      font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+    }
+    .badge.ok  { background:var(--goodBg); color:var(--good); border:1px solid var(--goodBorder); }
+    .badge.err { background:var(--badBg);  color:var(--bad);  border:1px solid var(--badBorder); }
+    .badge.warn{ background:var(--warnBg); color:var(--warn); border:1px solid var(--warnBorder); }
+    .badge.spin{ background:var(--panel);  color:var(--muted2); border:1px solid var(--muted); animation:pulse 1.2s infinite; }
+    .badge.info{ background:rgba(34,211,238,.1); color:var(--accent); border:1px solid rgba(34,211,238,.3); }
+    @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.4} }
+    .detail{ font-size:13px; color:var(--muted2); }
+    .detail strong{ color:var(--fg); }
+    .btn-row{ display:flex; gap:10px; justify-content:center; }
+    .btn-row.hidden{ display:none; }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:6px;
+      padding:14px 28px; border-radius:12px; border:none;
+      font-family:'DM Sans',system-ui,sans-serif; font-size:15px; font-weight:700;
+      cursor:pointer; transition:opacity .12s, transform .1s;
+      user-select:none;
+    }
+    .btn:active{ transform:scale(.96); }
+    .btn:disabled{ opacity:.35; cursor:not-allowed; transform:none; }
+    .btn-point{
+      background:linear-gradient(135deg,var(--accent2),var(--accent));
+      color:#0a0f1e; flex:1; max-width:200px;
+    }
+    .btn-point:hover:not(:disabled){ opacity:.88; }
+    .btn-undo{
+      background:var(--warnBg); color:var(--warn); border:1px solid var(--warnBorder);
+      padding:14px 18px;
+    }
+    .btn-undo:hover:not(:disabled){ background:#3d2510; }
+    .home a{
+      display:inline-flex; align-items:center; gap:6px;
+      color:var(--muted2); text-decoration:none; font-size:12px;
+      padding:6px 12px; border-radius:8px; border:1px solid var(--muted);
+      transition:color .12s, border-color .12s;
+    }
+    .home a:hover{ color:var(--fg); border-color:var(--muted2); }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+</head>
+<body>
+<div class="card">
+  <div class="icon" id="icon">🎾</div>
+  <div class="title" id="title">Behandler…</div>
+  <div><span class="badge spin" id="badge">Arbejder</span></div>
+  <div class="detail" id="detail"></div>
+  <div class="btn-row hidden" id="btnRow">
+    <button class="btn btn-undo" id="btnUndo" disabled>↩ Fortryd</button>
+    <button class="btn btn-point" id="btnPoint" disabled>🎾 Point</button>
+  </div>
+  <div class="home"><a href="index.html">← Menu</a></div>
+</div>
+
+<script>
+'use strict';
+
+const db   = firebase.database();
+const auth = firebase.auth();
+
+const teamId = (new URLSearchParams(location.search).get('player') || '').trim();
+
+let foundGameId = null;
+let foundTeam   = null;
+let teamName    = '';
+let gameName    = '';
+let gameRef     = null;
+let busy        = false;
+
+// ── UI helpers ────────────────────────────────────────────────────────────
+function setStatus(icon, titleText, badgeText, badgeClass, detailHtml){
+  document.getElementById('icon').textContent  = icon;
+  document.getElementById('title').textContent = titleText;
+  const b = document.getElementById('badge');
+  b.textContent = badgeText;
+  b.className   = 'badge ' + badgeClass;
+  document.getElementById('detail').innerHTML  = detailHtml || '';
+}
+
+function pointLabel(n,o){
+  if(n<=0) return '0'; if(n===1) return '15'; if(n===2) return '30';
+  if(n===3) return '40'; if(o>=3 && n===o) return '40'; return 'Ad';
+}
+
+function scoreHtml(g){
+  const sets  = (g.setsA||0)+'–'+(g.setsB||0);
+  const games = (g.gamesA||0)+'–'+(g.gamesB||0);
+  let points  = '';
+  if(g.inTiebreak){
+    points = 'TB: '+(g.tbA||0)+'–'+(g.tbB||0);
+  } else {
+    const pA = g.pointsA||0, pB = g.pointsB||0;
+    if(pA || pB) points = pointLabel(pA,pB)+'–'+pointLabel(pB,pA);
+  }
+  return `Sæt: <strong>${sets}</strong> &nbsp;|&nbsp; Partier: <strong>${games}</strong>${points ? ' &nbsp;|&nbsp; '+points : ''}`;
+}
+
+function showReady(g){
+  const finished = g && g.finished;
+  document.getElementById('btnRow').classList.toggle('hidden', !!finished);
+  document.getElementById('btnPoint').disabled = false;
+  const h = toArr(g?.history || []);
+  document.getElementById('btnUndo').disabled = h.length === 0;
+  if(finished){
+    setStatus('🏆', 'Kamp afsluttet!', 'Afsluttet', 'ok',
+      `<strong>${teamName}</strong> i <strong>${gameName}</strong><br>${scoreHtml(g)}`);
+  } else {
+    setStatus('🎾', teamName, 'Aktiv kamp', 'info',
+      `<strong>${gameName}</strong><br>${scoreHtml(g)}`);
+  }
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────
+function toArr(v){
+  if(Array.isArray(v)) return v;
+  if(!v || typeof v !== 'object') return [];
+  const ks = Object.keys(v);
+  return ks.every(k => /^\d+$/.test(k))
+    ? ks.sort((a,b) => +a - +b).map(k => v[k])
+    : Object.values(v);
+}
+
+function shallowClone(o){ return JSON.parse(JSON.stringify(o)); }
+
+// ── Scoring engine ────────────────────────────────────────────────────────
+function isGolden(s){ return (s._info?.deuce || 'advantage') === 'golden'; }
+
+function startTiebreak(s){
+  s.inTiebreak = true; s.tbA = 0; s.tbB = 0; s._tbCount = 0;
+  s.server = (s.server === 'A') ? 'B' : 'A';
+}
+function checkSetEnd(s){
+  const n = (s._info?.format || 'best3') === 'best5' ? 3 : 2;
+  if(s.setsA >= n || s.setsB >= n) s.finished = true;
+}
+function recordSet(s, tbStr){
+  s.setHistory = toArr(s.setHistory);
+  s.setHistory.push({a:s.gamesA, b:s.gamesB, ...(tbStr ? {tb:tbStr} : {})});
+}
+function nextSetServer(s){ s.server = (s.server === 'A') ? 'B' : 'A'; }
+function rotateServer(s){
+  if(s.server === 'A'){ s.serverIdxA = (s.serverIdxA + 1) % 2; s.server = 'B'; }
+  else                 { s.serverIdxB = (s.serverIdxB + 1) % 2; s.server = 'A'; }
+}
+
+function givePoint(s, team){
+  if(s.finished) return s;
+  s = shallowClone(s);
+  s.history = toArr(s.history);
+  const snap = shallowClone(s); delete snap.history;
+  s.history.push(snap);
+  if(s.history.length > 200) s.history.shift();
+
+  if(s.inTiebreak){
+    if(team === 'A') s.tbA++; else s.tbB++; s._tbCount++;
+    if(s._tbCount === 1) s.server = (s.server === 'A') ? 'B' : 'A';
+    else if(s._tbCount > 1 && s._tbCount % 2 === 1) s.server = (s.server === 'A') ? 'B' : 'A';
+    if((s.tbA >= 7 || s.tbB >= 7) && Math.abs(s.tbA - s.tbB) >= 2){
+      if(s.tbA > s.tbB) s.setsA++; else s.setsB++;
+      recordSet(s, s.tbA+'-'+s.tbB);
+      s.gamesA=0; s.gamesB=0; s.pointsA=0; s.pointsB=0;
+      s.inTiebreak=false; s.tbA=0; s.tbB=0; s._tbCount=0;
+      nextSetServer(s); checkSetEnd(s);
+    }
+    return s;
+  }
+
+  if(team === 'A') s.pointsA++; else s.pointsB++;
+  const a = s.pointsA, b = s.pointsB;
+  const tbOn = true;
+
+  if(isGolden(s) && a >= 3 && b >= 3 && a !== b){
+    if(a > b) s.gamesA++; else s.gamesB++; s.pointsA=0; s.pointsB=0;
+    if(tbOn && s.gamesA === 6 && s.gamesB === 6){ startTiebreak(s); }
+    else if((s.gamesA >= 6 || s.gamesB >= 6) && Math.abs(s.gamesA - s.gamesB) >= 2){
+      if(s.gamesA > s.gamesB) s.setsA++; else s.setsB++; recordSet(s);
+      s.gamesA=0; s.gamesB=0; nextSetServer(s); checkSetEnd(s);
+    } else { rotateServer(s); }
+    return s;
+  }
+
+  if((a >= 4 || b >= 4) && Math.abs(a - b) >= 2){
+    if(a > b) s.gamesA++; else s.gamesB++; s.pointsA=0; s.pointsB=0;
+    if(tbOn && s.gamesA === 6 && s.gamesB === 6){ startTiebreak(s); }
+    else if((s.gamesA >= 6 || s.gamesB >= 6) && Math.abs(s.gamesA - s.gamesB) >= 2){
+      if(s.gamesA > s.gamesB) s.setsA++; else s.setsB++; recordSet(s);
+      s.gamesA=0; s.gamesB=0; nextSetServer(s); checkSetEnd(s);
+    } else { rotateServer(s); }
+  }
+  return s;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────
+async function doPoint(){
+  if(busy || !gameRef) return;
+  busy = true;
+  document.getElementById('btnPoint').disabled = true;
+  document.getElementById('btnUndo').disabled = true;
+  try {
+    const fresh = (await gameRef.once('value')).val();
+    if(!fresh){ setStatus('❌','Kamp ikke fundet','Fejl','err',''); return; }
+    if(fresh.finished){ showReady(fresh); return; }
+    const updated = givePoint(fresh, foundTeam);
+    delete updated._meta;
+    await gameRef.set(updated);
+    showReady(updated);
+  } catch(e){
+    setStatus('❌','Fejl','Fejl','err', e.message || String(e));
+  } finally { busy = false; }
+}
+
+async function doUndo(){
+  if(busy || !gameRef) return;
+  busy = true;
+  document.getElementById('btnPoint').disabled = true;
+  document.getElementById('btnUndo').disabled = true;
+  try {
+    const fresh = (await gameRef.once('value')).val();
+    if(!fresh){ setStatus('❌','Kamp ikke fundet','Fejl','err',''); return; }
+    const history = toArr(fresh.history || []);
+    if(!history.length){
+      showReady(fresh);
+      return;
+    }
+    const prev = history.pop();
+    prev.history = history;
+    // Normalise arrays
+    prev.setHistory = toArr(prev.setHistory);
+    if(prev._info){ prev._info.playersA = toArr(prev._info.playersA); prev._info.playersB = toArr(prev._info.playersB); }
+    delete prev._meta;
+    await gameRef.set(prev);
+    showReady(prev);
+  } catch(e){
+    setStatus('❌','Fejl','Fejl','err', e.message || String(e));
+  } finally { busy = false; }
+}
+
+document.getElementById('btnPoint').addEventListener('click', doPoint);
+document.getElementById('btnUndo').addEventListener('click', doUndo);
+
+// ── Init ──────────────────────────────────────────────────────────────────
+async function run(){
+  if(!teamId){
+    setStatus('⚠️', 'Manglende parameter', 'Fejl', 'err',
+      'Brug <code>?player=HOLD_ID</code> i URL\'en.<br>' +
+      'Hold-ID\'et er Firebase-nøglen fra hold-administration.');
+    return;
+  }
+
+  await auth.signInAnonymously();
+
+  const snap  = await db.ref('padel-score/games').get();
+  const games = snap.val() || {};
+
+  for(const [gid, g] of Object.entries(games)){
+    if(g.finished) continue;
+    const info = g._info || {};
+    if(info.teamAId === teamId){ foundGameId = gid; foundTeam = 'A'; break; }
+    if(info.teamBId === teamId){ foundGameId = gid; foundTeam = 'B'; break; }
+  }
+
+  if(!foundGameId){
+    setStatus('🔍', 'Ingen aktiv kamp', 'Ikke fundet', 'warn',
+      `Holdet <strong>${teamId}</strong> er ikke i en aktiv kamp.<br>` +
+      `<small>Hold-ID'et skal matche nøglen i hold-administration.</small>`);
+    return;
+  }
+
+  const info = games[foundGameId]._info || {};
+  teamName   = foundTeam === 'A' ? (info.teamA || 'Hold A') : (info.teamB || 'Hold B');
+  gameName   = info.name || foundGameId;
+  gameRef    = db.ref('padel-score/games/' + foundGameId);
+
+  const fresh = (await gameRef.once('value')).val();
+  if(!fresh){
+    setStatus('❌', 'Kamp ikke fundet', 'Fejl', 'err', 'Kampen eksisterer ikke længere.');
+    return;
+  }
+
+  showReady(fresh);
+}
+
+run().catch(e => setStatus('❌', 'Fejl', 'Fejl', 'err', e.message || String(e)));
+</script>
+</body>
+</html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no"/>
+  <title>Point</title>
+  <style>
+    *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+    html,body{
+      background:#000; color:#fff;
+      font-family:-apple-system,'Helvetica Neue',sans-serif;
+      height:100%; width:100%; overflow:hidden;
+    }
+    .screen{
+      display:grid;
+      grid-template-rows:56px 1fr;
+      height:100dvh; width:100dvw;
+      max-width:200px; max-height:200px;
+      margin:auto; position:relative;
+    }
+
+    /* ── Status bar ── */
+    .status{
+      display:flex; align-items:center; justify-content:center;
+      font-size:15px; font-weight:700; letter-spacing:.5px;
+      border-bottom:1px solid #222;
+      transition:background .2s, color .2s;
+    }
+    .status.idle   { color:#444; }
+    .status.busy   { color:#666; }
+    .status.ok     { background:#0d2f22; color:#10b981; }
+    .status.err    { background:#3b0d0d; color:#ef4444; }
+    .status.warn   { background:#2f1d0a; color:#f59e0b; }
+
+    /* ── Main button ── */
+    .btn{
+      display:flex; align-items:center; justify-content:center;
+      background:#000; border:none; color:#fff;
+      font-size:28px; font-weight:900;
+      letter-spacing:1px; cursor:pointer;
+      transition:background .1s;
+      -webkit-user-select:none; user-select:none;
+    }
+    .btn:active{ background:#111; }
+    .btn:disabled{ color:#333; cursor:default; }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+</head>
+<body>
+<div class="screen">
+  <div class="status idle" id="status">—</div>
+  <button class="btn" id="btn" disabled>POINT</button>
+</div>
+
+<script>
+'use strict';
+const db   = firebase.database();
+const auth = firebase.auth();
+const teamId = (new URLSearchParams(location.search).get('player') || '').trim();
+
+const statusEl = document.getElementById('status');
+const btn      = document.getElementById('btn');
+
+function setStatus(text, cls){
+  statusEl.textContent = text;
+  statusEl.className   = 'status ' + cls;
+}
+
+function toArr(v){
+  if(Array.isArray(v)) return v;
+  if(!v||typeof v!=='object') return [];
+  const ks=Object.keys(v);
+  return ks.every(k=>/^\d+$/.test(k))?ks.sort((a,b)=>+a-+b).map(k=>v[k]):Object.values(v);
+}
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function isGolden(s){ return (s._info?.deuce||'advantage')==='golden'; }
+function startTB(s){ s.inTiebreak=true;s.tbA=0;s.tbB=0;s._tbCount=0;s.server=s.server==='A'?'B':'A'; }
+function checkEnd(s){ const n=(s._info?.format||'best3')==='best5'?3:2; if(s.setsA>=n||s.setsB>=n)s.finished=true; }
+function recSet(s,tb){ s.setHistory=toArr(s.setHistory);s.setHistory.push({a:s.gamesA,b:s.gamesB,...(tb?{tb}:{})}); }
+function nextSrv(s){ s.server=s.server==='A'?'B':'A'; }
+function rotSrv(s){ if(s.server==='A'){s.serverIdxA=(s.serverIdxA+1)%2;s.server='B';}else{s.serverIdxB=(s.serverIdxB+1)%2;s.server='A';} }
+function gameWon(s,team){
+  if(team==='A')s.gamesA++;else s.gamesB++;s.pointsA=0;s.pointsB=0;
+  const tbOn=true;
+  if(tbOn&&s.gamesA===6&&s.gamesB===6)startTB(s);
+  else if((s.gamesA>=6||s.gamesB>=6)&&Math.abs(s.gamesA-s.gamesB)>=2){
+    if(s.gamesA>s.gamesB)s.setsA++;else s.setsB++;recSet(s);
+    s.gamesA=0;s.gamesB=0;nextSrv(s);checkEnd(s);
+  }else rotSrv(s);
+}
+function givePoint(s,team){
+  if(s.finished)return s;
+  s=clone(s);s.history=toArr(s.history);
+  const snap=clone(s);delete snap.history;
+  s.history.push(snap);if(s.history.length>200)s.history.shift();
+  if(s.inTiebreak){
+    if(team==='A')s.tbA++;else s.tbB++;s._tbCount++;
+    if(s._tbCount===1)s.server=s.server==='A'?'B':'A';
+    else if(s._tbCount>1&&s._tbCount%2===1)s.server=s.server==='A'?'B':'A';
+    if((s.tbA>=7||s.tbB>=7)&&Math.abs(s.tbA-s.tbB)>=2){
+      if(s.tbA>s.tbB)s.setsA++;else s.setsB++;recSet(s,`${s.tbA}-${s.tbB}`);
+      s.gamesA=0;s.gamesB=0;s.pointsA=0;s.pointsB=0;
+      s.inTiebreak=false;s.tbA=0;s.tbB=0;s._tbCount=0;nextSrv(s);checkEnd(s);
+    }
+    return s;
+  }
+  if(team==='A')s.pointsA++;else s.pointsB++;
+  const a=s.pointsA,b=s.pointsB;
+  if(isGolden(s)&&a>=3&&b>=3&&a!==b){gameWon(s,a>b?'A':'B');return s;}
+  if((a>=4||b>=4)&&Math.abs(a-b)>=2)gameWon(s,a>b?'A':'B');
+  return s;
+}
+
+async function addPoint(){
+  btn.disabled=true;
+  setStatus('…','busy');
+  try{
+    const snap  = await db.ref('padel-score/games').get();
+    const games = snap.val()||{};
+    let gid=null, team=null;
+    for(const [id,g] of Object.entries(games)){
+      if(g.finished)continue;
+      const info=g._info||{};
+      if(info.teamAId===teamId){gid=id;team='A';break;}
+      if(info.teamBId===teamId){gid=id;team='B';break;}
+    }
+    if(!gid){ setStatus('?','warn'); btn.disabled=false; return; }
+    const ref   = db.ref('padel-score/games/'+gid);
+    const fresh = (await ref.once('value')).val();
+    if(!fresh||fresh.finished){ setStatus('—','warn'); btn.disabled=false; return; }
+    const updated = givePoint(fresh, team);
+    delete updated._meta;
+    await ref.set(updated);
+    setStatus('OK','ok');
+  }catch(e){
+    setStatus('ERR','err');
+  }
+  btn.disabled=false;
+}
+
+// Init
+if(!teamId){
+  setStatus('NO ID','err');
+}else{
+  setStatus('…','busy');
+  auth.signInAnonymously()
+    .then(()=>{ setStatus('—','idle'); btn.disabled=false; })
+    .catch(()=>setStatus('ERR','err'));
+}
+
+btn.addEventListener('click', addPoint);
+</script>
+</body>
+</html>

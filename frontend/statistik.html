@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Padel – Statistik</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#0a0f1e; --bg2:#0f172a; --panel:#111827;
+      --fg:#e5e7eb; --muted:#64748b; --muted2:#94a3b8;
+      --border:#1e2d45; --border2:#334155;
+      --btn:#0d1829; --btnHover:#111f33;
+      --accent:#22d3ee; --accent2:#0891b2;
+      --good:#10b981; --goodBg:#0d2f22; --goodBorder:#164e44;
+      --bad:#ef4444; --badBg:#3b0d0d; --badBorder:#661616;
+    }
+    *{ box-sizing:border-box; margin:0; padding:0; }
+    html,body{ background:var(--bg); color:var(--fg); font-family:'DM Sans',system-ui,sans-serif; min-height:100%; }
+    body::before{
+      content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background-image:
+        linear-gradient(rgba(34,211,238,.025) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(34,211,238,.025) 1px,transparent 1px);
+      background-size:40px 40px;
+    }
+
+    header{
+      position:sticky; top:0; z-index:10;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:12px 18px; border-bottom:1px solid var(--border);
+      background:linear-gradient(180deg,rgba(10,15,30,.98),rgba(10,15,30,.92));
+      backdrop-filter:blur(8px);
+    }
+    .hdr-left{ display:flex; align-items:center; gap:10px; }
+    .logo{
+      width:34px; height:34px; display:grid; place-items:center;
+      background:linear-gradient(135deg,#06252a,#0a3a43);
+      border:1px solid rgba(34,211,238,.3); border-radius:10px;
+    }
+    .logo svg{ width:20px; height:20px; }
+    .hdr-title{ font-family:'Syne',sans-serif; font-weight:800; font-size:16px; letter-spacing:-.3px; }
+    .hdr-count{ font-size:12px; color:var(--muted2); padding:3px 10px; border:1px solid var(--border2); border-radius:999px; }
+
+    .wrap{ max-width:1200px; margin:0 auto; padding:18px; display:grid; gap:16px; position:relative; z-index:1; }
+
+    .toolbar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .seg{
+      display:inline-flex; background:var(--btn);
+      border:1px solid var(--border2); border-radius:12px; overflow:hidden;
+    }
+    .seg button{
+      border:0; background:transparent; color:var(--muted2);
+      padding:8px 14px; cursor:pointer; font-family:'DM Sans',sans-serif;
+      font-size:13px; transition:background .12s, color .12s;
+    }
+    .seg button.active{ background:#1e3a4a; color:var(--accent); }
+    .seg button:hover:not(.active){ background:var(--btnHover); color:var(--fg); }
+
+    label.toggle{
+      display:flex; gap:8px; align-items:center;
+      font-size:13px; color:var(--muted2); cursor:pointer;
+    }
+    label.toggle input{ width:16px; height:16px; accent-color:var(--accent); }
+
+    .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media(max-width:900px){ .grid2{ grid-template-columns:1fr; } }
+
+    .card{
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:14px; padding:16px;
+    }
+    .card-title{
+      font-family:'Syne',sans-serif; font-weight:700; font-size:15px;
+      margin-bottom:12px; color:var(--fg);
+    }
+
+    /* Table */
+    .tbl-wrap{ overflow-x:auto; }
+    table{ width:100%; border-collapse:collapse; font-size:13px; }
+    th,td{ text-align:left; padding:9px 10px; border-bottom:1px solid var(--border); }
+    th{
+      color:var(--muted2); font-weight:600; font-size:12px;
+      letter-spacing:.5px; text-transform:uppercase; cursor:pointer;
+      white-space:nowrap; user-select:none;
+    }
+    th:hover{ color:var(--accent); }
+    th.sort-asc::after{ content:' ↑'; color:var(--accent); }
+    th.sort-desc::after{ content:' ↓'; color:var(--accent); }
+    tr:hover td{ background:rgba(34,211,238,.04); }
+    td:first-child{ font-weight:500; }
+    .pct-bar{
+      display:flex; align-items:center; gap:8px;
+    }
+    .bar{
+      flex:1; height:4px; background:var(--border2); border-radius:2px; overflow:hidden;
+    }
+    .bar-fill{ height:100%; background:var(--accent); border-radius:2px; transition:width .3s; }
+    .num{ min-width:32px; text-align:right; }
+
+    /* H2H */
+    .h2h-selects{
+      display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px;
+    }
+    select{
+      background:var(--btn); border:1px solid var(--border2); color:var(--fg);
+      padding:9px 12px; border-radius:10px; font-size:13px;
+      font-family:'DM Sans',sans-serif; min-width:160px;
+    }
+    .h2h-result{
+      background:#0b1525; border:1px solid var(--border); border-radius:10px;
+      padding:14px 16px;
+    }
+    .h2h-score{ display:flex; align-items:center; gap:12px; margin-top:8px; }
+    .h2h-name{ font-family:'Syne',sans-serif; font-weight:700; font-size:14px; }
+    .h2h-wins{
+      font-size:28px; font-weight:800; font-family:'Syne',sans-serif; color:var(--accent);
+    }
+    .h2h-wins.loser{ color:var(--muted); font-size:22px; }
+    .vs{ color:var(--muted); font-size:12px; margin:0 4px; }
+    .sets-line{ font-size:12px; color:var(--muted2); margin-top:4px; }
+
+    .empty{ color:var(--muted); font-style:italic; font-size:13px; padding:8px 0; }
+    .loading{ color:var(--muted2); font-size:13px; }
+
+    /* ── Site nav ─────────────────────────────────────────────────── */
+    .menu-link{
+      display:inline-flex; align-items:center; gap:5px;
+      padding:5px 10px; border-radius:8px;
+      color:var(--muted2,#64748b); text-decoration:none; font-size:12px;
+      border:1px solid var(--border,#334155); background:var(--btn,#0d1829);
+      transition:color .12s, background .12s; white-space:nowrap; flex-shrink:0;
+    }
+    .menu-link:hover{ color:var(--fg,#e5e7eb); background:var(--btnHover,#111f33); }
+    .menu-link svg{ flex-shrink:0; }
+
+    /* ── Quick-nav ───────────────────────────────────────────────── */
+    .quick-nav{
+      display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+      padding:8px 18px; border-bottom:1px solid var(--border);
+      background:rgba(10,15,30,.94); backdrop-filter:blur(8px);
+      position:sticky; top:58px; z-index:8;
+    }
+    .qn-label{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-right:4px; }
+    .qn-link{
+      display:inline-flex; align-items:center; gap:5px;
+      padding:5px 11px; border-radius:8px;
+      border:1px solid var(--border2); background:var(--btn);
+      color:var(--muted3); text-decoration:none; font-size:12px;
+      transition:background .12s, color .12s; white-space:nowrap;
+    }
+    .qn-link:hover{ background:var(--btnHover); color:var(--fg); }
+    .qn-link.live{ border-color:rgba(34,211,238,.3); color:var(--accent); }
+    .qn-link.live:hover{ background:rgba(34,211,238,.08); }
+    .qn-link.active{ background:rgba(34,211,238,.1); border-color:rgba(34,211,238,.35); color:var(--accent); pointer-events:none; }
+
+    /* ── Skeleton ────────────────────────────────────────────────── */
+    @keyframes shimmer{ 0%{background-position:-600px 0} 100%{background-position:600px 0} }
+    .skel-row{ height:38px; border-radius:6px; margin-bottom:6px; background:linear-gradient(90deg,var(--panel) 25%,var(--panel2) 50%,var(--panel) 75%); background-size:600px 100%; animation:shimmer 1.4s infinite linear; }
+
+    /* ── Date range ──────────────────────────────────────────────── */
+    .date-seg{ display:inline-flex; background:var(--btn); border:1px solid var(--border2); border-radius:10px; overflow:hidden; }
+    .date-seg button{ border:0; background:transparent; color:var(--muted2); padding:7px 12px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:12px; transition:background .12s,color .12s; white-space:nowrap; }
+    .date-seg button.active{ background:#1e3a4a; color:var(--accent); }
+    .date-seg button:hover:not(.active){ background:var(--btnHover); color:var(--fg); }
+
+    /* ── Searchable H2H ──────────────────────────────────────────── */
+    .h2h-search{ position:relative; flex:1; min-width:140px; }
+    .h2h-search input{ width:100%; padding:8px 10px 8px 30px; background:var(--btn); border:1px solid var(--border2); color:var(--fg); border-radius:9px; font-size:13px; font-family:'DM Sans',sans-serif; }
+    .h2h-search input:focus{ outline:none; border-color:var(--accent); }
+    .h2h-search input::placeholder{ color:var(--muted); }
+    .h2h-search-icon{ position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--muted2); pointer-events:none; }
+    .h2h-dropdown{ position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:20; background:var(--bg2); border:1px solid var(--border2); border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.5); max-height:180px; overflow-y:auto; display:none; }
+    .h2h-dropdown.open{ display:block; }
+    .h2h-opt{ padding:9px 12px; font-size:13px; cursor:pointer; transition:background .1s; }
+    .h2h-opt:hover{ background:var(--btnHover); }
+    .h2h-opt.selected{ color:var(--accent); background:rgba(34,211,238,.08); }
+    .h2h-chosen{ font-size:12px; color:var(--muted3); margin-top:4px; min-height:16px; }
+  </style>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-database-compat.js"></script>
+  <script src="firebase-config.js"></script>
+</head>
+<body>
+  <header>
+    <div class="hdr-left">
+      <a href="index.html" class="menu-link" title="Tilbage til menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Menu
+      </a>
+            <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="6" r="3"/><path d="M9 15 L18 6"/><path d="M3 21 L9 15"/>
+        </svg>
+      </div>
+      <span class="hdr-title">Statistik</span>
+    </div>
+    <span class="hdr-count" id="gamesCount">Henter…</span>
+  </header>
+
+  <!-- Quick-nav -->
+  <div class="quick-nav">
+    <span class="qn-label">Genvej</span>
+    <a href="index.html" class="qn-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      Menu
+    </a>
+    <a href="admin_games.html" class="qn-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M12 3l7 3v6c0 5-3.5 8-7 9-3.5-1-7-4-7-9V6l7-3z"/></svg>
+      Kampoverblik
+    </a>
+    <a href="opret_hold.html" class="qn-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M16 11a4 4 0 1 0-8 0"/><path d="M3 20a7 7 0 0 1 18 0"/></svg>
+      Opret hold
+    </a>
+    <a href="turnering.html" class="qn-link">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+      Turnering
+    </a>
+    <a href="live_dommer.html" class="qn-link live">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><circle cx="12" cy="12" r="3"/><path d="M5.64 5.64a9 9 0 1 0 12.73 12.73M8.46 8.46a5 5 0 1 0 7.07 7.07"/></svg>
+      Live dommer
+    </a>
+    <span class="qn-link active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M3 20h18"/><rect x="6" y="10" width="3" height="7" rx="1"/><rect x="11" y="6" width="3" height="11" rx="1"/><rect x="16" y="12" width="3" height="5" rx="1"/></svg>
+      Statistik
+    </span>
+  </div>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="seg">
+        <button data-m="all" class="active">Alle</button>
+        <button data-m="single">Single</button>
+        <button data-m="double">Double</button>
+      </div>
+      <div class="date-seg">
+        <button data-days="0" class="active">Alt</button>
+        <button data-days="30">30 dage</button>
+        <button data-days="90">90 dage</button>
+      </div>
+      <label class="toggle">
+        <input id="incl" type="checkbox"/> Inkl. igangværende
+      </label>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Spillere</div>
+        <div class="tbl-wrap" id="playersTbl"><div class="skel-row"></div><div class="skel-row"></div><div class="skel-row"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Hold</div>
+        <div class="tbl-wrap" id="teamsTbl"><div class="skel-row"></div><div class="skel-row"></div><div class="skel-row"></div></div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Head-to-head – Spillere</div>
+        <div class="h2h-selects">
+          <div class="h2h-search" id="ps1wrap">
+            <svg class="h2h-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input id="ps1input" placeholder="Søg spiller 1…" autocomplete="off"/>
+            <div class="h2h-dropdown" id="ps1drop"></div>
+            <div class="h2h-chosen" id="ps1chosen"></div>
+          </div>
+          <span class="vs">vs</span>
+          <div class="h2h-search" id="ps2wrap">
+            <svg class="h2h-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input id="ps2input" placeholder="Søg spiller 2…" autocomplete="off"/>
+            <div class="h2h-dropdown" id="ps2drop"></div>
+            <div class="h2h-chosen" id="ps2chosen"></div>
+          </div>
+        </div>
+        <div id="ph2h" class="empty">Vælg to spillere</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Head-to-head – Hold</div>
+        <div class="h2h-selects">
+          <div class="h2h-search" id="ts1wrap">
+            <svg class="h2h-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input id="ts1input" placeholder="Søg hold 1…" autocomplete="off"/>
+            <div class="h2h-dropdown" id="ts1drop"></div>
+            <div class="h2h-chosen" id="ts1chosen"></div>
+          </div>
+          <span class="vs">vs</span>
+          <div class="h2h-search" id="ts2wrap">
+            <svg class="h2h-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input id="ts2input" placeholder="Søg hold 2…" autocomplete="off"/>
+            <div class="h2h-dropdown" id="ts2drop"></div>
+            <div class="h2h-chosen" id="ts2chosen"></div>
+          </div>
+        </div>
+        <div id="th2h" class="empty">Vælg to hold</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function safe(val,def=0){ return (typeof val==='number'&&!isNaN(val))?val:def; }
+    function getSetTotals(g){ const sh=g.setHistory||g._setHistory||g.sets||[]; if(Array.isArray(sh)&&sh.length){ let a=0,b=0; sh.forEach(s=>{ if(typeof s==='object'){ if(s.a>s.b)a++; else if(s.b>s.a)b++; } }); return{a,b}; } return{a:safe(g.setsA),b:safe(g.setsB)}; }
+    function gameType(info){ const A=(info.playersA||[]).filter(Boolean); const B=(info.playersB||[]).filter(Boolean); return(Math.max(A.length,B.length)<=1)?'single':'double'; }
+    function winnerBySets(g){ const t=getSetTotals(g); if(t.a===t.b)return null; return t.a>t.b?'A':'B'; }
+    function addObj(map,key){ if(!map[key])map[key]={matches:0,wins:0,losses:0,setsW:0,setsL:0}; return map[key]; }
+    function applyStats(entityMap,key,setsWon,setsLost,isWin){ const obj=addObj(entityMap,key); if(isWin!=null)obj.matches++; if(isWin===true)obj.wins++; else if(isWin===false)obj.losses++; obj.setsW+=setsWon; obj.setsL+=setsLost; }
+    function accumFromGame(g){ if(!g||!g._info)return null; const info=g._info; const t=gameType(info); const totals=getSetTotals(g); const w=winnerBySets(g); return{type:t,teamA:info.teamA||'(ukendt A)',teamB:info.teamB||'(ukendt B)',playersA:(info.playersA||[]).filter(Boolean),playersB:(info.playersB||[]).filter(Boolean),setsA:totals.a,setsB:totals.b,winner:w,created:info.created||0}; }
+
+    function computeAll(games,opts){
+      const includeOngoing=!!opts.includeOngoing, mode=opts.mode||'all', cutoff=opts.cutoff||0;
+      const playerStats={}, teamStats={}, playersSet=new Set(), teamsSet=new Set();
+      Object.keys(games||{}).forEach(id=>{
+        const g=games[id]; const a=accumFromGame(g); if(!a)return;
+        if(mode!=='all'&&a.type!==mode)return;
+        if(!a.winner&&!includeOngoing)return;
+        if(cutoff&&a.created<cutoff)return;
+        const isWinA=a.winner?a.winner==='A':null, isWinB=a.winner?a.winner==='B':null;
+        teamsSet.add(a.teamA); teamsSet.add(a.teamB);
+        applyStats(teamStats,a.teamA,a.setsA,a.setsB,isWinA);
+        applyStats(teamStats,a.teamB,a.setsB,a.setsA,isWinB);
+        a.playersA.forEach(p=>{ playersSet.add(p); applyStats(playerStats,p,a.setsA,a.setsB,isWinA); });
+        a.playersB.forEach(p=>{ playersSet.add(p); applyStats(playerStats,p,a.setsB,a.setsA,isWinB); });
+      });
+      return{playerStats,teamStats,players:[...playersSet].sort(),teams:[...teamsSet].sort()};
+    }
+
+    function toArray(map){ return Object.entries(map||{}).map(([name,v])=>({name,...v})); }
+    function addDerived(rows){ rows.forEach(r=>{ const m=r.wins+r.losses; r.winPct=m?Math.round(1000*r.wins/m)/10:0; r.setDiff=r.setsW-r.setsL; }); return rows; }
+
+    function buildTable(el,rows){
+      if(!rows.length){ el.innerHTML='<div class="empty">Ingen data endnu.</div>'; return; }
+      let sortKey='wins', sortAsc=false;
+      function doSort(){ rows.sort((a,b)=>{ const A=a[sortKey],B=b[sortKey]; if(A===B)return 0; return(A>B?1:-1)*(sortAsc?1:-1); }); doRender(); }
+      function doRender(){
+        const cols=[{k:'name',lbl:'Navn'},{k:'matches',lbl:'Kampe'},{k:'wins',lbl:'Vundne'},{k:'losses',lbl:'Tabte'},{k:'setsW',lbl:'Sæt V'},{k:'setsL',lbl:'Sæt T'},{k:'setDiff',lbl:'Sæt ±'},{k:'winPct',lbl:'Sejr %'}];
+        el.innerHTML=`<table><thead><tr>${cols.map(c=>`<th data-k="${c.k}" class="${sortKey===c.k?(sortAsc?'sort-asc':'sort-desc'):''}">${escHtml(c.lbl)}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr><td>${escHtml(r.name)}</td><td>${r.matches}</td><td style="color:var(--good)">${r.wins}</td><td style="color:var(--muted2)">${r.losses}</td><td>${r.setsW}</td><td>${r.setsL}</td><td style="color:${r.setDiff>=0?'var(--good)':'var(--bad)'}">${r.setDiff>=0?'+':''}${r.setDiff}</td><td><div class="pct-bar"><div class="bar"><div class="bar-fill" style="width:${r.winPct}%"></div></div><span class="num">${r.winPct.toFixed(1)}%</span></div></td></tr>`).join('')}</tbody></table>`;
+        el.querySelectorAll('th').forEach(th=>th.addEventListener('click',()=>{ const k=th.dataset.k; if(sortKey===k)sortAsc=!sortAsc; else{sortKey=k;sortAsc=false;} doSort(); }));
+      }
+      doRender();
+    }
+
+    function headToHeadGames(games,mode,kind,A,B,cutoff){
+      const out=[];
+      Object.keys(games||{}).forEach(id=>{
+        const g=games[id]; const a=accumFromGame(g); if(!a)return;
+        if(mode!=='all'&&a.type!==mode)return;
+        if(cutoff&&a.created<cutoff)return;
+        if(kind==='teams'){ if([a.teamA,a.teamB].includes(A)&&[a.teamA,a.teamB].includes(B))out.push({id,acc:a}); }
+        else{ const hasA=a.playersA.includes(A)||a.playersB.includes(A); const hasB=a.playersA.includes(B)||a.playersB.includes(B); if(hasA&&hasB)out.push({id,acc:a}); }
+      });
+      return out;
+    }
+
+    function summarizeH2H(list,kind,A,B){ let mA=0,mB=0,sA=0,sB=0; list.forEach(x=>{ const a=x.acc; const w=a.winner; if(kind==='teams'){ if(w==='A'){if(a.teamA===A){mA++;sA+=a.setsA;sB+=a.setsB;}else{mB++;sA+=a.setsB;sB+=a.setsA;}}else if(w==='B'){if(a.teamB===A){mA++;sA+=a.setsB;sB+=a.setsA;}else{mB++;sA+=a.setsA;sB+=a.setsB;}} }else{ const onA=a.playersA.includes(A); if(w==='A'){if(onA){mA++;sA+=a.setsA;sB+=a.setsB;}else{mB++;sA+=a.setsB;sB+=a.setsA;}}else if(w==='B'){if(!onA){mA++;sA+=a.setsB;sB+=a.setsA;}else{mB++;sA+=a.setsA;sB+=a.setsB;}} } }); return{matches:mA+mB,A:{wins:mA,sets:sA},B:{wins:mB,sets:sB}}; }
+
+    function renderH2H(outEl,kind,A,B){ if(!A||!B||A===B){outEl.className='empty';outEl.innerHTML='Vælg to forskellige '+(kind==='players'?'spillere':'hold')+'.';return;} const list=headToHeadGames(GAMES,MODE,kind,A,B,CUTOFF); const s=summarizeH2H(list,kind,A,B); if(!s.matches){outEl.className='empty';outEl.textContent='Ingen kampe fundet.';return;} outEl.className='h2h-result'; const aW=(s.A.wins>=s.B.wins); outEl.innerHTML=`<div class="h2h-score"><div><div class="h2h-name">${escHtml(A)}</div><div class="h2h-wins ${aW?'':'loser'}">${s.A.wins}</div></div><div style="color:var(--muted);font-size:13px">sejre</div><div style="color:var(--muted2);font-weight:700">vs</div><div style="color:var(--muted);font-size:13px">sejre</div><div><div class="h2h-name">${escHtml(B)}</div><div class="h2h-wins ${!aW?'':'loser'}">${s.B.wins}</div></div></div><div class="sets-line">Sæt: ${escHtml(A)} <strong>${s.A.sets}</strong> – ${escHtml(B)} <strong>${s.B.sets}</strong> · ${s.matches} kamp(e)</div>`; }
+
+    // ── Searchable H2H widgets ─────────────────────────────────────────────────
+    const h2hState = { ps1:'', ps2:'', ts1:'', ts2:'' };
+
+    function makeSearchWidget(inputId, dropId, chosenId, stateKey, getItems, onPick) {
+      const inp  = document.getElementById(inputId);
+      const drop = document.getElementById(dropId);
+      const cho  = document.getElementById(chosenId);
+
+      function showDrop(items, q) {
+        const filtered = items.filter(x => x.toLowerCase().includes(q.toLowerCase())).slice(0, 20);
+        if (!filtered.length) { drop.classList.remove('open'); return; }
+        drop.innerHTML = filtered.map(x => `<div class="h2h-opt${x===h2hState[stateKey]?' selected':''}" data-v="${escHtml(x)}">${escHtml(x)}</div>`).join('');
+        drop.classList.add('open');
+        drop.querySelectorAll('.h2h-opt').forEach(el => el.addEventListener('mousedown', e => {
+          e.preventDefault();
+          h2hState[stateKey] = el.dataset.v;
+          inp.value = '';
+          cho.textContent = el.dataset.v;
+          drop.classList.remove('open');
+          onPick();
+        }));
+      }
+
+      inp.addEventListener('input', () => showDrop(getItems(), inp.value));
+      inp.addEventListener('focus', () => { if (inp.value) showDrop(getItems(), inp.value); });
+      inp.addEventListener('blur',  () => setTimeout(() => drop.classList.remove('open'), 150));
+    }
+
+    // ── State ──────────────────────────────────────────────────────────────────
+    let GAMES={}, MODE='all', INCLUDE_ONGOING=false, CUTOFF=0;
+
+    function computeAndRender(){
+      const res=computeAll(GAMES,{mode:MODE,includeOngoing:INCLUDE_ONGOING,cutoff:CUTOFF});
+
+      // Refresh dropdown items for search widgets
+      makeSearchWidget('ps1input','ps1drop','ps1chosen','ps1',()=>res.players,()=>renderH2H(document.getElementById('ph2h'),'players',h2hState.ps1,h2hState.ps2));
+      makeSearchWidget('ps2input','ps2drop','ps2chosen','ps2',()=>res.players,()=>renderH2H(document.getElementById('ph2h'),'players',h2hState.ps1,h2hState.ps2));
+      makeSearchWidget('ts1input','ts1drop','ts1chosen','ts1',()=>res.teams,()=>renderH2H(document.getElementById('th2h'),'teams',h2hState.ts1,h2hState.ts2));
+      makeSearchWidget('ts2input','ts2drop','ts2chosen','ts2',()=>res.teams,()=>renderH2H(document.getElementById('th2h'),'teams',h2hState.ts1,h2hState.ts2));
+
+      buildTable(document.getElementById('playersTbl'), addDerived(toArray(res.playerStats)).sort((a,b)=>b.wins-a.wins||b.setDiff-a.setDiff));
+      buildTable(document.getElementById('teamsTbl'),   addDerived(toArray(res.teamStats)).sort((a,b)=>b.wins-a.wins||b.setDiff-a.setDiff));
+
+      const daysLabel = CUTOFF ? `${Math.round((Date.now()-CUTOFF)/864e5)} dage` : 'alt';
+      document.getElementById('gamesCount').textContent = Object.keys(GAMES).length+' kampe · '+MODE+' · '+daysLabel+(INCLUDE_ONGOING?', inkl. igangværende':'');
+
+      // Re-render H2H if selections are set
+      if(h2hState.ps1||h2hState.ps2) renderH2H(document.getElementById('ph2h'),'players',h2hState.ps1,h2hState.ps2);
+      if(h2hState.ts1||h2hState.ts2) renderH2H(document.getElementById('th2h'),'teams',h2hState.ts1,h2hState.ts2);
+    }
+
+    // ── Bindings ───────────────────────────────────────────────────────────────
+    document.querySelectorAll('.seg button').forEach(b=>{
+      b.addEventListener('click',()=>{ MODE=b.dataset.m; document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('active')); b.classList.add('active'); computeAndRender(); });
+    });
+
+    document.querySelectorAll('.date-seg button').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const days=parseInt(b.dataset.days);
+        CUTOFF = days ? Date.now() - days*864e5 : 0;
+        document.querySelectorAll('.date-seg button').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active');
+        computeAndRender();
+      });
+    });
+
+    document.getElementById('incl').addEventListener('change',e=>{ INCLUDE_ONGOING=e.target.checked; computeAndRender(); });
+
+    firebase.auth().signInAnonymously().then(async ()=>{
+      const snap=await firebase.database().ref('padel-score/games').get();
+      GAMES=snap.val()||{};
+      computeAndRender();
+    }).catch(e=>{ document.getElementById('gamesCount').textContent='Auth-fejl: '+e.message; });
+  </script>
+</body>
+</html>
