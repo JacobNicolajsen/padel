@@ -877,13 +877,16 @@ function startTiebreak(){ s.inTiebreak=true;s.tbA=0;s.tbB=0;s._tbCount=0;s.serve
 function playDing(){
   try{
     const ctx = new (window.AudioContext||window.webkitAudioContext)();
-    [[880,0,0],[880,0.01,0.5],[659,0.05,0.4],[440,0.4,0]].forEach(([freq,when,vol])=>{
+    const t = ctx.currentTime;
+    [[880, t,     0.6],
+     [659, t+0.12, 0.45],
+     [440, t+0.5,  0.3]].forEach(([freq, start, vol])=>{
       const osc=ctx.createOscillator(), gain=ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
       osc.type='sine'; osc.frequency.value=freq;
-      gain.gain.setValueAtTime(vol, ctx.currentTime+when);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+when+1.8);
-      osc.start(ctx.currentTime+when); osc.stop(ctx.currentTime+when+1.8);
+      gain.gain.setValueAtTime(vol, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start+2);
+      osc.start(start); osc.stop(start+2);
     });
   }catch(e){}
 }
@@ -904,7 +907,7 @@ function onMatchFinished(){ playDing(); setTimeout(announceMatchResult, 1400); }
 
 function checkSetEnd(){
   const n=(s._info.format||'best3')==='best5'?3:2;
-  if((s.setsA>=n||s.setsB>=n) && !s.finished){ s.finished=true; setTimeout(onMatchFinished,0); }
+  if((s.setsA>=n||s.setsB>=n) && !s.finished){ s.finished=true; onMatchFinished(); }
 }
 function recordSet(tb){ s.setHistory=s.setHistory||[]; s.setHistory.push({a:s.gamesA,b:s.gamesB,...(tb?{tb}:{})}); }
 function nextSetServer(){ s.server=(s.server==='A')?'B':'A'; }

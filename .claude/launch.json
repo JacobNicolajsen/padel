@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Frontend (static)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "frontend", "-p", "5500"],
+      "port": 5500
+    },
+    {
+      "name": "Backend (PHP)",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["-S", "localhost:8080", "-t", "backend"],
+      "port": 8080
+    }
+  ]
+}

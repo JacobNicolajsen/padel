@@ -1,5 +1,9 @@
 # Secrets — never commit
 backend/config.php
+frontend/config.php
+
+# Claude Code local settings (personal, not shared)
+.claude/settings.local.json
 
 # OS
 .DS_Store
