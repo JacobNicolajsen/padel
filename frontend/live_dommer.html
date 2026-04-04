@@ -917,6 +917,19 @@ function announceSetResult(){
 
 function onSetFinished(){ playDing(); setTimeout(announceSetResult, 1400); }
 
+function announceGameScore(){
+  if(!window.speechSynthesis) return;
+  const text = s.inTiebreak
+    ? `Tiebreak! ${s._info.teamA||'Hold A'} og ${s._info.teamB||'Hold B'} seks alle.`
+    : `${s.gamesA} til ${s.gamesB}.`;
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang='da-DK'; utt.rate=0.88; utt.pitch=1;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utt);
+}
+
+function onGameFinished(){ playDing(); setTimeout(announceGameScore, 800); }
+
 function checkSetEnd(){
   const n=(s._info.format||'best3')==='best5'?3:2;
   if((s.setsA>=n||s.setsB>=n) && !s.finished){ s.finished=true; onMatchFinished(); }
@@ -947,21 +960,21 @@ function givePoint(team){
   if(isGolden()&&a>=3&&b>=3&&a!==b){
     const wonA=a>b; if(wonA) s.gamesA++; else s.gamesB++; s.pointsA=0;s.pointsB=0;
     const tbOn2 = s._info.tiebreak !== 'off';
-    if(tbOn2&&s.gamesA===6&&s.gamesB===6){ startTiebreak(); }
+    if(tbOn2&&s.gamesA===6&&s.gamesB===6){ startTiebreak(); onGameFinished(); }
     else if((s.gamesA>=6||s.gamesB>=6)&&Math.abs(s.gamesA-s.gamesB)>=2){
       if(s.gamesA>s.gamesB) s.setsA++; else s.setsB++; recordSet();
       s.gamesA=0;s.gamesB=0; nextSetServer(); checkSetEnd();
-    } else { rotateServer(); maybeAutoSideSwap(); }
+    } else { rotateServer(); maybeAutoSideSwap(); onGameFinished(); }
     render(); pushSync(); return;
   }
   if((a>=4||b>=4)&&Math.abs(a-b)>=2){
     const wonA=a>b; if(wonA) s.gamesA++; else s.gamesB++; s.pointsA=0;s.pointsB=0;
     const tbOn = s._info.tiebreak !== 'off';
-    if(tbOn&&s.gamesA===6&&s.gamesB===6){ startTiebreak(); }
+    if(tbOn&&s.gamesA===6&&s.gamesB===6){ startTiebreak(); onGameFinished(); }
     else if((s.gamesA>=6||s.gamesB>=6)&&Math.abs(s.gamesA-s.gamesB)>=2){
       if(s.gamesA>s.gamesB) s.setsA++; else s.setsB++; recordSet();
       s.gamesA=0;s.gamesB=0; nextSetServer(); checkSetEnd();
-    } else { rotateServer(); maybeAutoSideSwap(); }
+    } else { rotateServer(); maybeAutoSideSwap(); onGameFinished(); }
   }
   render(); pushSync();
 }
