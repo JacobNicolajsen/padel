@@ -905,9 +905,22 @@ function announceMatchResult(){
 
 function onMatchFinished(){ playDing(); setTimeout(announceMatchResult, 1400); }
 
+function announceSetResult(){
+  if(!window.speechSynthesis) return;
+  const teamA = s._info.teamA||'Hold A', teamB = s._info.teamB||'Hold B';
+  const text = `Sæt vundet! Stilling: ${teamA} ${s.setsA}, ${teamB} ${s.setsB}.`;
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang='da-DK'; utt.rate=0.88; utt.pitch=1;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utt);
+}
+
+function onSetFinished(){ playDing(); setTimeout(announceSetResult, 1400); }
+
 function checkSetEnd(){
   const n=(s._info.format||'best3')==='best5'?3:2;
   if((s.setsA>=n||s.setsB>=n) && !s.finished){ s.finished=true; onMatchFinished(); }
+  else if(!s.finished){ onSetFinished(); }
 }
 function recordSet(tb){ s.setHistory=s.setHistory||[]; s.setHistory.push({a:s.gamesA,b:s.gamesB,...(tb?{tb}:{})}); }
 function nextSetServer(){ s.server=(s.server==='A')?'B':'A'; }
