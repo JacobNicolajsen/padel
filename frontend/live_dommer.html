@@ -895,8 +895,8 @@ function announceMatchResult(){
   if(!window.speechSynthesis) return;
   const teamA = s._info.teamA||'Hold A', teamB = s._info.teamB||'Hold B';
   const winner = s.setsA>s.setsB ? teamA : teamB;
-  const setScores = (s.setHistory||[]).map((h,i)=>`sæt ${i+1}: ${h.a}-${h.b}`).join('. ');
-  const text = `Parti slut! ${winner} vinder, ${s.setsA} til ${s.setsB}. ${setScores}.`;
+  const setScores = (s.setHistory||[]).map((h,i)=>`sæt ${i+1} ${h.a}-${h.b}`).join(', ');
+  const text = `Parti slut ${winner} vinder ${s.setsA} til ${s.setsB} ${setScores}`;
   const utt = new SpeechSynthesisUtterance(text);
   utt.lang='da-DK'; utt.rate=0.88; utt.pitch=1;
   window.speechSynthesis.cancel();
@@ -908,7 +908,7 @@ function onMatchFinished(){ playDing(); setTimeout(announceMatchResult, 1400); }
 function announceSetResult(){
   if(!window.speechSynthesis) return;
   const teamA = s._info.teamA||'Hold A', teamB = s._info.teamB||'Hold B';
-  const text = `Sæt vundet! Stilling: ${teamA} ${s.setsA}, ${teamB} ${s.setsB}.`;
+  const text = `Sæt vundet Stilling ${teamA} ${s.setsA} ${teamB} ${s.setsB}`;
   const utt = new SpeechSynthesisUtterance(text);
   utt.lang='da-DK'; utt.rate=0.88; utt.pitch=1;
   window.speechSynthesis.cancel();
@@ -920,8 +920,8 @@ function onSetFinished(){ playDing(); setTimeout(announceSetResult, 1400); }
 function announceGameScore(){
   if(!window.speechSynthesis) return;
   const text = s.inTiebreak
-    ? `Tiebreak! ${s._info.teamA||'Hold A'} og ${s._info.teamB||'Hold B'} seks alle.`
-    : `${s.gamesA} til ${s.gamesB}.`;
+    ? `Tiebreak ${s._info.teamA||'Hold A'} og ${s._info.teamB||'Hold B'} seks alle`
+    : `${s.gamesA} til ${s.gamesB}`;
   const utt = new SpeechSynthesisUtterance(text);
   utt.lang='da-DK'; utt.rate=0.88; utt.pitch=1;
   window.speechSynthesis.cancel();
