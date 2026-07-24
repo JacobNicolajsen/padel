@@ -4,6 +4,6 @@ deployment:
     - export DEPLOYPATH=/home/jacobspl/public_html/padel
     - /bin/mkdir -p $DEPLOYPATH
     - /bin/cp frontend/*.html $DEPLOYPATH
-    - /bin/cp backend/firebase-config.js $DEPLOYPATH
-    - /bin/cp backend/point_api.php $DEPLOYPATH
-    - /bin/cp backend/service-worker.js $DEPLOYPATH
+    - /bin/cp frontend/firebase-config.js $DEPLOYPATH
+    - /bin/cp frontend/point_api.php $DEPLOYPATH
+    - /bin/cp frontend/service-worker.js $DEPLOYPATH
