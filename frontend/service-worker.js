@@ -42,7 +42,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
 
   // Don't intercept Firebase/external requests
-  if (!url.origin.includes(self.location.hostname)) return;
+  if (url.origin !== self.location.origin) return;
 
   // HTML pages: network-first (always get fresh content)
   if (request.headers.get('accept')?.includes('text/html')) {

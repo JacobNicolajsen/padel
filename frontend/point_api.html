@@ -231,13 +231,18 @@ async function doPoint(){
   document.getElementById('btnPoint').disabled = true;
   document.getElementById('btnUndo').disabled = true;
   try {
-    const fresh = (await gameRef.once('value')).val();
-    if(!fresh){ setStatus('❌','Kamp ikke fundet','Fejl','err',''); return; }
-    if(fresh.finished){ showReady(fresh); return; }
-    const updated = givePoint(fresh, foundTeam);
-    delete updated._meta;
-    await gameRef.set(updated);
-    showReady(updated);
+    // Atomic transaction: hvis en dommer skriver samtidigt, genkører Firebase
+    // callbacken med den nye serverstate i stedet for at overskrive den.
+    const res = await gameRef.transaction(current => {
+      if(current === null) return current;   // ingen lokal cache: no-op, tvinger refetch + genkørsel
+      if(current.finished) return;           // undefined = afbryd transaktionen
+      const updated = givePoint(current, foundTeam);
+      delete updated._meta;
+      return updated;
+    });
+    const finalState = res.snapshot ? res.snapshot.val() : null;
+    if(!finalState){ setStatus('❌','Kamp ikke fundet','Fejl','err',''); return; }
+    showReady(finalState);
   } catch(e){
     setStatus('❌','Fejl','Fejl','err', e.message || String(e));
   } finally { busy = false; }
@@ -249,21 +254,22 @@ async function doUndo(){
   document.getElementById('btnPoint').disabled = true;
   document.getElementById('btnUndo').disabled = true;
   try {
-    const fresh = (await gameRef.once('value')).val();
-    if(!fresh){ setStatus('❌','Kamp ikke fundet','Fejl','err',''); return; }
-    const history = toArr(fresh.history || []);
-    if(!history.length){
-      showReady(fresh);
-      return;
-    }
-    const prev = history.pop();
-    prev.history = history;
-    // Normalise arrays
-    prev.setHistory = toArr(prev.setHistory);
-    if(prev._info){ prev._info.playersA = toArr(prev._info.playersA); prev._info.playersB = toArr(prev._info.playersB); }
-    delete prev._meta;
-    await gameRef.set(prev);
-    showReady(prev);
+    // Atomic transaction: undgår at fortryd overskriver et samtidigt dommer-point.
+    const res = await gameRef.transaction(current => {
+      if(current === null) return current;   // ingen lokal cache: no-op, tvinger refetch + genkørsel
+      const history = toArr(current.history || []);
+      if(!history.length) return;            // intet at fortryde: afbryd
+      const prev = history.pop();
+      prev.history = history;
+      // Normalise arrays
+      prev.setHistory = toArr(prev.setHistory);
+      if(prev._info){ prev._info.playersA = toArr(prev._info.playersA); prev._info.playersB = toArr(prev._info.playersB); }
+      delete prev._meta;
+      return prev;
+    });
+    const finalState = res.snapshot ? res.snapshot.val() : null;
+    if(!finalState){ setStatus('❌','Kamp ikke fundet','Fejl','err',''); return; }
+    showReady(finalState);
   } catch(e){
     setStatus('❌','Fejl','Fejl','err', e.message || String(e));
   } finally { busy = false; }
